@@ -137,6 +137,7 @@ const hud = new HUD(uiRoot, {
   onSpeak: (text) => audio.speak(text),
   onReset: () => store.reset(),
   onBack: () => goBackToHub(),
+  onCloseCard: () => closeCard(),
   xrRenderer: engine.renderer,
 }, progress);
 hud.setBodyCount(data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet').length);
@@ -364,15 +365,11 @@ function selectBody(id: string) {
     return;
   }
   if (id === 'building') {
-    hud.showStation(); // reuse card style? show building info
-    // override card content
+    hud.showStation();
     const card = document.querySelector('#planet-card') as HTMLElement;
     if (card) {
       card.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h2>🏢 Centro de Controle</h2>
-          <button class="btn" id="back-btn">← Voltar</button>
-        </div>
+        ${cardHeader('🏢 Centro de Controle')}
         <div class="subtitle">Sede do time de exploradores</div>
         <p style="font-size:0.85rem;opacity:0.85;">Sala de monitores, estações de trabalho e comunicação com a frota. Aqui a equipe coordena lançamentos, missões e telemetria.</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -380,6 +377,7 @@ function selectBody(id: string) {
           <button class="btn" id="cert-btn">📜 Certificado</button>
         </div>
       `;
+      card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
       card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
       card.querySelector('#cert-btn')?.addEventListener('click', () => showCertificate());
       card.querySelector('#tour-btn')?.addEventListener('click', () => enterTour());
@@ -391,13 +389,11 @@ function selectBody(id: string) {
     if (card) {
       card.classList.add('visible');
       card.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h2>🚗 Veículo de Transporte</h2>
-          <button class="btn" id="back-btn">← Voltar</button>
-        </div>
+        ${cardHeader('🚗 Veículo de Transporte')}
         <div class="subtitle">Transporte da equipe até a plataforma de lançamento</div>
         <p style="font-size:0.85rem;opacity:0.85;">Os astronautas usam este veículo para se deslocar entre o centro de controle e a plataforma de lançamento.</p>
       `;
+      card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
       card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
     }
     return;
@@ -432,6 +428,21 @@ function selectBody(id: string) {
     hud.showPlanet(bodyData);
     atualizarIndicadorEscala(bodyData);
   });
+}
+
+/** Fecha o painel de informações sem mover a câmera. */
+function closeCard() {
+  hud.hidePlanet();
+}
+
+/** HTML do cabeçalho de card com ✕ (fecha) e "← Voltar ao mapa" (vai ao hub). */
+function cardHeader(title: string): string {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+      <h2 style="margin:0;flex:1;">${title}</h2>
+      <button class="btn" id="close-btn" title="Fechar painel" style="padding:0;width:36px;height:36px;min-width:36px;font-size:1rem;">✕</button>
+      <button class="btn" id="back-btn" style="font-size:0.8rem;">← Voltar ao mapa</button>
+    </div>`;
 }
 
 function goBackToHub() {

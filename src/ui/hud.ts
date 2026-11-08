@@ -17,6 +17,7 @@ export interface HUDCallbacks {
   onSpeak: (text: string) => void;
   onReset: () => void;
   onBack: () => void;
+  onCloseCard: () => void;
   xrRenderer?: { xr: { getSession: () => XRSession | null } };
 }
 
@@ -34,6 +35,15 @@ export class HUD {
     this.progress = progress;
     this.scaleMode = progress.scaleMode;
     this.render();
+  }
+
+  private cardHeader(title: string): string {
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+        <h2 style="margin:0;flex:1;">${title}</h2>
+        <button class="btn" id="close-btn" title="Fechar painel" style="padding:0;width:36px;height:36px;min-width:36px;font-size:1rem;">✕</button>
+        <button class="btn" id="back-btn" style="font-size:0.8rem;">← Voltar ao mapa</button>
+      </div>`;
   }
 
   private render() {
@@ -122,10 +132,7 @@ export class HUD {
     card.classList.add('visible');
     const satList = body.satellites?.map((s) => s.name).join(', ') || '—';
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>${body.name}</h2>
-        <button class="btn" id="back-btn">← Voltar</button>
-      </div>
+      ${this.cardHeader(body.name)}
       <div class="subtitle">${body.type === 'dwarf' ? 'Planeta anão' : body.type === 'star' ? 'Estrela' : body.type === 'belt' ? 'Cinturão' : 'Planeta'}</div>
       <dl class="data-grid">
         <dt>Raio</dt><dd>${body.radiusKm.toLocaleString('pt-BR')} km</dd>
@@ -158,6 +165,7 @@ export class HUD {
       </div>
     `;
 
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
     card.querySelector('#cert-btn')?.addEventListener('click', () => this.callbacks.onCertificate());
 
@@ -222,16 +230,14 @@ export class HUD {
     const card = this.root.querySelector('#planet-card') as HTMLElement;
     card.classList.add('visible');
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>🛰️ Estação Orbital — Sede do Time</h2>
-        <button class="btn" id="back-btn">← Voltar</button>
-      </div>
+      ${this.cardHeader('🛰️ Estação Orbital — Sede do Time')}
       <div class="subtitle">Base de operações da equipe de exploradores</div>
       <p style="font-size:0.85rem;opacity:0.85;">A estação orbita a Terra e serve como centro de comando, laboratório e ponto de encontro da tripulação (Lucas, Rafael e Mariana). Módulos de habitação, painéis solares e cúpula de observação.</p>
       <div style="margin-top:12px;">
         <button class="btn" id="cert-btn">📜 Certificado</button>
       </div>
     `;
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
     card.querySelector('#cert-btn')?.addEventListener('click', () => this.callbacks.onCertificate());
   }
@@ -244,10 +250,7 @@ export class HUD {
       return a ? a.name : id;
     }).join(', ') || '—';
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>🚀 ${r.name}</h2>
-        <button class="btn" id="back-btn">← Voltar</button>
-      </div>
+      ${this.cardHeader(`🚀 ${r.name}`)}
       <div class="subtitle">${r.type}</div>
       <dl class="data-grid">
         <dt>Altura</dt><dd>${r.heightM} m</dd>
@@ -266,6 +269,7 @@ export class HUD {
         <button class="btn" id="cert-btn">📜 Certificado</button>
       </div>
     `;
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
     card.querySelector('#cert-btn')?.addEventListener('click', () => this.callbacks.onCertificate());
   }
