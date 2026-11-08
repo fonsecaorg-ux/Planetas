@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { AstronautData, RocketData, BodyData } from '@/data/types';
 import { Astronaut } from '@/core/astronaut';
 import { Rocket } from '@/core/rocket';
 import { createDaylight } from '@/core/lighting';
 import { disposeObject3D } from '@/core/engine';
 import { narrate } from '@/core/narration';
+
+const _gltf = new GLTFLoader();
 
 export type JourneyState = 'idle' | 'chegada' | 'treinamento' | 'contagem' | 'lancamento' | 'concluido';
 
@@ -816,6 +819,19 @@ export class BaseScene {
       this.hitboxes.push({ mesh: rocket.hitbox, id: `rocket:${r.id}` });
     });
 
+    // Estrutura modular extra (decorativa) ao lado do launch pad
+    _gltf.load('/models/station_structure.glb', (gltf) => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3(); box.getSize(size);
+      model.scale.setScalar(3.5 / Math.max(size.x, size.y, size.z));
+      const box2 = new THREE.Box3().setFromObject(model);
+      model.position.y -= box2.min.y;
+      model.position.set(22, model.position.y, -5);
+      model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      this.group.add(model);
+    }, undefined, () => {});
+
     // Holofotes na base
     for (const [ox, oz] of [[-3, 3], [3, 3], [-3, -13], [3, -13]]) {
       const light = new THREE.SpotLight(0xfff8e0, 2.5, 60, Math.PI / 8, 0.4);
@@ -875,33 +891,85 @@ export class BaseScene {
   }
 
   private _buildParkingLot() {
+    // 3 modelos diferentes para variedade visual
+    const carModels = [
+      '/models/car_sedan.glb',
+      '/models/car_suv.glb',
+      '/models/car_taxi.glb',
+    ];
     const carColors = [0x2563eb, 0xdc2626, 0xd97706];
     const carPos = [[4, 10], [7.5, 10], [11, 10]] as [number, number][];
 
     carPos.forEach(([px, pz], i) => {
-      const car = this._buildCar(carColors[i]);
-      car.position.set(px, 0, pz);
-      car.rotation.y = Math.PI / 2;
-      this.group.add(car);
-      const hb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
+      // Hitbox sempre criada (para raycasting funcionar antes do modelo carregar)
+      const hb = new THREE.Mesh(
+        new THREE.BoxGeometry(2.6, 1.2, 1.4),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      );
       hb.position.set(px, 0.6, pz);
       this.group.add(hb);
       this.hitboxes.push({ mesh: hb, id: `car:${i}` });
+
+      // Placeholder procedural (removido quando o GLB chegar)
+      const placeholder = this._buildCarProcedural(carColors[i]);
+      placeholder.position.set(px, 0, pz);
+      placeholder.rotation.y = Math.PI / 2;
+      this.group.add(placeholder);
+
+      _gltf.load(
+        carModels[i],
+        (gltf) => {
+          this.group.remove(placeholder);
+          const model = gltf.scene;
+
+          // Normalizar tamanho para ~2.4u de comprimento
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const maxDim = Math.max(size.x, size.z) || 1;
+          model.scale.setScalar(2.4 / maxDim);
+
+          // Sentar na grama (y = 0)
+          const box2 = new THREE.Box3().setFromObject(model);
+          model.position.y -= box2.min.y;
+
+          // Colorir carroceria principal com a cor do slot
+          const bodyColor = new THREE.Color(carColors[i]);
+          model.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            // Heurística Kenney: mesh mais largo é a carroceria
+            if (mat && size.x > 0.5) {
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: bodyColor,
+                roughness: 0.35,
+                metalness: 0.25,
+              });
+            }
+          });
+
+          model.position.set(px, model.position.y, pz);
+          model.rotation.y = Math.PI / 2;
+          this.group.add(model);
+        },
+        undefined,
+        () => { /* GLB ausente: placeholder fica */ },
+      );
     });
   }
 
-  private _buildCar(color: number): THREE.Group {
+  private _buildCarProcedural(color: number): THREE.Group {
     const g = new THREE.Group();
     const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.3 });
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x4a7fa0, roughness: 0.1, transparent: true, opacity: 0.7 });
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.65, 1.1), bodyMat);
     body.position.y = 0.5; body.castShadow = true; g.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 0.95), bodyMat);
     cabin.position.set(-0.15, 1.05, 0); g.add(cabin);
-    const windshield = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.5), glassMat);
-    windshield.rotation.y = Math.PI / 2; windshield.position.set(0.73, 1.05, 0); g.add(windshield);
 
     for (const [wx, wz] of [[-0.8, 0.52], [-0.8, -0.52], [0.8, 0.52], [0.8, -0.52]]) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.18, 14), wheelMat);
