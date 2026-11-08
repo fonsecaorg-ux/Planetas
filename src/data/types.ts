@@ -52,6 +52,22 @@ export interface SatelliteData {
   retrograde?: boolean;
 }
 
+/** Elementos keplerianos JPL (época J2000.0) */
+export interface OrbitalElements {
+  /** Semi-eixo maior em UA */
+  a: number;
+  /** Excentricidade */
+  e: number;
+  /** Inclinação em graus */
+  i: number;
+  /** Longitude do nó ascendente em graus */
+  omega: number;
+  /** Longitude do periélio em graus (= Ω + ω) */
+  w_bar: number;
+  /** Longitude média em J2000.0 em graus */
+  L0: number;
+}
+
 export interface BodyData {
   id: string;
   name: string;
@@ -61,6 +77,7 @@ export interface BodyData {
   distanceAU: number;
   distanceKm: number;
   orbitalPeriodDays: number;
+  orbitalElements?: OrbitalElements;
   rotationPeriodHours: number;
   temperatureK: number;
   gravityRelative: number;

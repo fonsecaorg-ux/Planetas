@@ -14,6 +14,7 @@ import type { BodyData, ScaleMode } from '@/data/types';
 import { lightTravelSeconds, formatTime, sceneExtent, ANEL_EXTERNO } from '@/utils/scale';
 import { clamp } from '@/utils/easing';
 import { createStarfield } from '@/core/starfield';
+import { createSkybox } from '@/core/skybox';
 import { PerfOverlay } from '@/core/perfOverlay';
 import rocketsData from '@/data/rockets.json';
 import { AudioEngine } from '@/core/audio';
@@ -92,7 +93,11 @@ const hub = new HubScene({ data, scaleMode, sunPosition, activeAstronaut: store.
 engine.scene.add(hub.group);
 hub.applyFloatingOrigin();
 
-// Céu fora do mundo deslocado: acompanha a câmera e fica sempre no fundo
+// Céu fora do mundo deslocado: acompanha a câmera e fica sempre no fundo.
+// Skybox equiretangular (Via Láctea) + campo de estrelas procedural sobreposto.
+const skybox = createSkybox();
+engine.scene.add(skybox);
+
 const starfield = createStarfield();
 starfield.renderOrder = -1;
 engine.scene.add(starfield);
@@ -622,9 +627,11 @@ engine.onUpdate((dt) => {
     const near = clamp(superficieMaisProxima(_camPos) * NEAR_FRACAO_SUPERFICIE, NEAR_MIN, NEAR_MAX);
     const far = _camPos.length() + sceneExtent(scaleMode) * 1.2;
     engine.setClipPlanes(near, far);
-    // Estrelas centradas no observador, logo antes do far
+    // Estrelas e skybox centrados no observador, logo antes do far
     starfield.position.copy(_camPos);
     starfield.scale.setScalar((engine.camera.far * 0.8) / 1000);
+    skybox.position.copy(_camPos);
+    skybox.scale.setScalar((engine.camera.far * 0.8) / 950);
   }
   xr.update(dt, selectable);
 });

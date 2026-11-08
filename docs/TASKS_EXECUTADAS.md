@@ -1,5 +1,40 @@
 # Tasks executadas
 
+## [3.1–3.5] Fase 3 — Céu e Sol — 08/11/2026 (build ✅ | 13 testes ✅)
+
+### Arquivos criados
+- `src/core/skybox.ts` — skybox equiretangular NASA Deep Star Maps (2K); fallback gracioso se textura ausente
+- `src/core/sunGlow.ts` — `createSunGlow()`: Sprite canvas + AdditiveBlending, sem UnrealBloomPass
+- `src/utils/orbits.ts` — `keplerianPosition()`, `keplerianOrbitPath()`, `daysSinceJ2000()`; equação de Kepler por Newton-Raphson
+- `src/data/estrelas.json` — 120 estrelas Yale BSC5 (mag < 3.5) com posições J2000 precisas
+- `scripts/process-hyg.mjs` — script para gerar estrelas.json a partir de hygdata_v3.csv completo
+
+### Arquivos alterados
+- `src/core/starfield.ts` — posições reais RA/Dec do catálogo para estrelas brilhantes; fundo procedural (mag 3.5–6) para completar o céu
+- `src/core/body.ts` — glow sprite adicionado a corpos `type === 'star'`; `updatePosition()` usa `keplerianPosition()` quando `orbitalElements` presente; `simDays` avança com `timeSpeed`
+- `src/scenes/hub.ts` — `criarOrbitas()` usa `keplerianOrbitPath()` para elipses com inclinação real
+- `src/data/corpos.json` — `orbitalElements` adicionado a Mercúrio, Vênus, Terra, Marte, Júpiter, Saturno, Urano, Netuno, Plutão
+- `src/data/types.ts` — interface `OrbitalElements` adicionada; `BodyData.orbitalElements?: OrbitalElements`
+- `src/shaders/atmosphere.ts` — shader Rayleigh/Mie simplificado: halo azul no limbo, pôr-do-sol laranja, Mie central branco
+- `src/main.ts` — skybox adicionado à cena; `skybox.position` sincronizado com câmera no loop
+
+### Feito
+- **3.1**: Skybox equiretangular (Via Láctea) a partir de `/public/textures/starmap_2020_2k.jpg`; carrega com TextureLoader; fallback preto + log se arquivo ausente; `renderOrder: -2`, `frustumCulled: false`, acompanha câmera
+- **3.2**: 120 estrelas Yale BSC5 com RA/Dec reais → XYZ por `radec2xyz()`; fundo procedural completa até 6000 estrelas; script `process-hyg.mjs` para substituir por dataset HYG completo quando disponível
+- **3.3**: `createSunGlow()` — Sprite com textura canvas (gradiente radial 256×256), `THREE.AdditiveBlending`, `depthTest: false`; escala 6× raio do Sol; sem bloom de pós-processamento (mobile VR)
+- **3.4**: Elementos keplerianos JPL (Standish 1992) para todos os 8 planetas + Plutão; `keplerianPosition()` resolve equação de Kepler por Newton-Raphson; direção preservada, distância escalonada pelo modo visual/real; anéis de órbita substituídos por elipses 3D com inclinação real
+- **3.5**: Shader Rayleigh (`1/λ⁴`, vetor `RAYLEIGH_K = (0.46, 1.0, 2.49)`) + Mie branco central + pôr-do-sol laranja (`sunAngle^8`); iluminação do lado solar preservada; sem ray-marching (mobile VR budget)
+
+### Pendente / avisos
+- **Textura Via Láctea**: baixar `starmap_2020_2k.jpg` em https://svs.gsfc.nasa.gov/4851 e salvar em `public/textures/`; sem ela o céu fica preto com estrelas procedurais (funcional, mas sem a Galáxia)
+- **Catálogo HYG completo**: baixar `hygdata_v3.csv` de https://github.com/astronexus/HYG-Database e rodar `node scripts/process-hyg.mjs` para substituir `estrelas.json` por ~9.096 estrelas visíveis (mag ≤ 6)
+- **FPS/mobile**: skybox adiciona 1 draw call; starfield e glow são 2; Rayleigh/Mie shader é mais pesado que Fresnel puro mas sem ray-marching — impacto esperado < 2ms/frame; a verificar no dispositivo
+- Verificação visual no navegador e em VR não foi realizada (sem ambiente de teste disponível)
+- Status: ⚠️ Parcial — código, build e testes verificados; visual e VR não verificados
+
+---
+
+
 ## [2.0–2.4] Fase 2 — Jornada terrestre — 08/11/2026 (build ✅ | 13 testes ✅)
 
 ### Arquivos criados

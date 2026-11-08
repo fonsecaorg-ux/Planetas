@@ -13,6 +13,8 @@ import { loadTexture, proceduralClouds, proceduralRings, proceduralTexture } fro
 import { atmosphereVertex, atmosphereFragment } from '@/shaders/atmosphere';
 import { ringsVertex, ringsFragment } from '@/shaders/rings';
 import { jupiterCloudVertex, jupiterCloudFragment } from '@/shaders/jupiter';
+import { createSunGlow } from '@/core/sunGlow';
+import { keplerianPosition, daysSinceJ2000 } from '@/utils/orbits';
 
 export interface BodyOptions {
   data: BodyData;
@@ -55,6 +57,8 @@ export class CelestialBody {
   private scaleMode: ScaleMode;
   private angle = Math.random() * Math.PI * 2;
   private sunPosition: THREE.Vector3;
+  // Dias desde J2000.0: sincronizado com o timeSpeed da cena a cada frame
+  private simDays = daysSinceJ2000();
   // Texturas chegam de forma assíncrona; se o corpo já foi descartado, não aplica
   private disposed = false;
 
@@ -86,6 +90,11 @@ export class CelestialBody {
     this.group.add(this.hitbox);
 
     this.loadTextures(opts.data);
+
+    // Glow sprite para estrelas (Sol): sem bloom de pós-processamento (mobile VR)
+    if (opts.data.type === 'star') {
+      this.group.add(createSunGlow(r));
+    }
 
     if (opts.data.tilt) {
       this.group.rotation.z = THREE.MathUtils.degToRad(opts.data.tilt);
@@ -239,8 +248,13 @@ export class CelestialBody {
 
   private updatePosition() {
     if (this.data.type === 'belt') return;
-    const d = orbitDistance(this.data.distanceKm, this.scaleMode);
-    this.group.position.set(Math.cos(this.angle) * d, 0, Math.sin(this.angle) * d);
+    if (this.data.orbitalElements) {
+      const pos = keplerianPosition(this.data.orbitalElements, this.scaleMode, this.simDays);
+      this.group.position.copy(pos);
+    } else {
+      const d = orbitDistance(this.data.distanceKm, this.scaleMode);
+      this.group.position.set(Math.cos(this.angle) * d, 0, Math.sin(this.angle) * d);
+    }
   }
 
   update(dt: number, timeSpeed: number, cameraPos?: THREE.Vector3) {
@@ -261,8 +275,14 @@ export class CelestialBody {
       return;
     }
     if (this.data.orbitalPeriodDays > 0) {
-      const omega = (2 * Math.PI) / (this.data.orbitalPeriodDays * 10);
-      this.angle += omega * dt * timeSpeed;
+      if (this.data.orbitalElements) {
+        // Avança a simulação pelo tempo real escalado; 10 é o fator de compressão
+        // de tempo já aplicado no loop principal (dt em segundos de jogo)
+        this.simDays += (dt * timeSpeed) / (86400 / 10);
+      } else {
+        const omega = (2 * Math.PI) / (this.data.orbitalPeriodDays * 10);
+        this.angle += omega * dt * timeSpeed;
+      }
       this.updatePosition();
     }
     if (this.data.rotationPeriodHours > 0) {

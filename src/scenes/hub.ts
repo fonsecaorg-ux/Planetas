@@ -10,6 +10,7 @@ import { Rocket } from '@/core/rocket';
 import rocketsData from '@/data/rockets.json';
 import { createSolarLight } from '@/core/lighting';
 import { orbitDistance } from '@/utils/scale';
+import { keplerianOrbitPath } from '@/utils/orbits';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -121,20 +122,36 @@ export class HubScene {
 
   private criarOrbitas(bodies: BodyData[], scaleMode: ScaleMode) {
     this.removerOrbitas();
-    const raios = bodies
-      .filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet')
-      .map((b) => orbitDistance(b.distanceKm, scaleMode));
-    // Cada segmento tem 2 vértices de 3 floats
-    const pos = new Float32Array(raios.length * ORBITA_SEGMENTOS * 6);
+    const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet');
+
+    // Conta pares (segmentos de linha): 2 pontos por segmento, 3 floats por ponto
+    const totalPairs = planets.length * ORBITA_SEGMENTOS;
+    const pos = new Float32Array(totalPairs * 6);
     let k = 0;
-    for (const dist of raios) {
+
+    for (const b of planets) {
+      let pts: { x: number; y: number; z: number }[];
+
+      if (b.orbitalElements) {
+        // Elipse real com inclinação kepleriana
+        pts = keplerianOrbitPath(b.orbitalElements, scaleMode, ORBITA_SEGMENTOS);
+      } else {
+        // Fallback: círculo no plano eclíptico
+        const dist = orbitDistance(b.distanceKm, scaleMode);
+        pts = Array.from({ length: ORBITA_SEGMENTOS + 1 }, (_, i) => {
+          const a = (i / ORBITA_SEGMENTOS) * Math.PI * 2;
+          return { x: Math.cos(a) * dist, y: 0, z: Math.sin(a) * dist };
+        });
+      }
+
       for (let i = 0; i < ORBITA_SEGMENTOS; i++) {
-        const a0 = (i / ORBITA_SEGMENTOS) * Math.PI * 2;
-        const a1 = ((i + 1) / ORBITA_SEGMENTOS) * Math.PI * 2;
-        pos[k++] = Math.cos(a0) * dist; pos[k++] = 0; pos[k++] = Math.sin(a0) * dist;
-        pos[k++] = Math.cos(a1) * dist; pos[k++] = 0; pos[k++] = Math.sin(a1) * dist;
+        const p0 = pts[i];
+        const p1 = pts[i + 1] ?? pts[0];
+        pos[k++] = p0.x; pos[k++] = p0.y; pos[k++] = p0.z;
+        pos[k++] = p1.x; pos[k++] = p1.y; pos[k++] = p1.z;
       }
     }
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const mat = new THREE.LineBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.35 });
