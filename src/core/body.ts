@@ -28,6 +28,11 @@ export interface BodyOptions {
 // versão de baixa resolução
 const LOD_DISTANCIA_EM_RAIOS = 40;
 
+// Diâmetro aparente mínimo em radianos — garante que planetas pequenos
+// (Terra, Marte, Mercúrio…) sejam sempre visíveis na vista panorâmica.
+// 0.007 rad ≈ 0.4° ≈ ~8 px a 1200 px de largura com FOV 75°.
+const MIN_APARENTE_RAD = 0.007;
+
 const _posMundo = new THREE.Vector3();
 
 interface SatelliteObj {
@@ -260,7 +265,9 @@ export class CelestialBody {
   update(dt: number, timeSpeed: number, cameraPos?: THREE.Vector3) {
     if (cameraPos) {
       this.group.getWorldPosition(_posMundo);
-      const wantLow = cameraPos.distanceTo(_posMundo) > this.radius * LOD_DISTANCIA_EM_RAIOS;
+      const dist = cameraPos.distanceTo(_posMundo);
+
+      const wantLow = dist > this.radius * LOD_DISTANCIA_EM_RAIOS;
       if (wantLow && this.currentLevel !== 1) {
         this.mesh.geometry = this.lowGeo;
         this.currentLevel = 1;
@@ -268,6 +275,15 @@ export class CelestialBody {
         this.mesh.geometry = this.highGeo;
         this.currentLevel = 0;
       }
+
+      // Escala visual mínima: garante ≥ MIN_APARENTE_RAD de diâmetro aparente
+      // para que planetas pequenos (Terra, Marte…) sejam sempre visíveis.
+      // Aplica à esfera, atmosfera, nuvens e hitbox; anéis ficam em raio físico.
+      const boost = Math.max(1, (dist * MIN_APARENTE_RAD) / this.radius);
+      this.mesh.scale.setScalar(boost);
+      this.hitbox.scale.setScalar(boost);
+      if (this.atmosphere) this.atmosphere.scale.setScalar(boost);
+      if (this.cloudLayer) this.cloudLayer.scale.setScalar(boost);
     }
 
     if (this.data.type === 'star') {
