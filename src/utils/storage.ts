@@ -1,7 +1,7 @@
-import type { ProgressState, ScaleMode, Difficulty } from '@/data/types';
+import type { ProgressState, ScaleMode, Difficulty, MissionRecord } from '@/data/types';
 
-const KEY = 'solar-explorer:progress:v2';
-const SCHEMA_VERSION = 2;
+const KEY = 'solar-explorer:progress:v3';
+const SCHEMA_VERSION = 3;
 
 const DEFAULT: ProgressState = {
   version: SCHEMA_VERSION,
@@ -24,10 +24,23 @@ export class ProgressStore {
 
   private load(): ProgressState {
     try {
-      let raw = localStorage.getItem(KEY);
-      if (!raw) raw = localStorage.getItem('solar-explorer:progress:v1');
+      let raw = localStorage.getItem(KEY)
+        || localStorage.getItem('solar-explorer:progress:v2')
+        || localStorage.getItem('solar-explorer:progress:v1');
       if (!raw) return { ...DEFAULT };
       const parsed = JSON.parse(raw) as ProgressState;
+      // Migração v2→v3: completedMissions tinha { difficulty, correct, at }
+      // agora tem { easy?, medium? } para não sobrescrever acertos entre dificuldades
+      if (parsed.completedMissions) {
+        for (const [key, val] of Object.entries(parsed.completedMissions)) {
+          if ('difficulty' in (val as object)) {
+            const old = val as { difficulty: Difficulty; correct: boolean; at: number };
+            const rec: MissionRecord = {};
+            rec[old.difficulty] = { correct: old.correct, at: old.at };
+            parsed.completedMissions[key] = rec;
+          }
+        }
+      }
       return { ...DEFAULT, ...parsed, version: SCHEMA_VERSION };
     } catch {
       return { ...DEFAULT };
@@ -40,6 +53,7 @@ export class ProgressStore {
     } catch {
       /* storage indisponível — segue em memória */
     }
+    this.onSave?.();
   }
 
   get(): ProgressState {
@@ -54,7 +68,9 @@ export class ProgressStore {
   }
 
   recordMission(bodyId: string, difficulty: Difficulty, correct: boolean) {
-    this.state.completedMissions[bodyId] = { difficulty, correct, at: Date.now() };
+    const existing = this.state.completedMissions[bodyId] ?? {};
+    // Preserva o acerto de outra dificuldade; sobrescreve apenas a dificuldade respondida
+    this.state.completedMissions[bodyId] = { ...existing, [difficulty]: { correct, at: Date.now() } };
     this.save();
   }
 
@@ -83,6 +99,14 @@ export class ProgressStore {
     this.state.activeAstronaut = id;
     this.save();
   }
+
+  setJourneyDone() {
+    this.state.journeyDone = true;
+    this.save();
+  }
+
+  /** Callback disparado após cada save — usado pelo cloudSync para debounce. */
+  onSave?: () => void;
 
   reset() {
     this.state = { ...DEFAULT };

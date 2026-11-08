@@ -1,12 +1,212 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import type { AstronautData, RocketData } from '@/data/types';
+import type { AstronautData, RocketData, BodyData } from '@/data/types';
 import { Astronaut } from '@/core/astronaut';
 import { Rocket } from '@/core/rocket';
 import { createDaylight } from '@/core/lighting';
 import { disposeObject3D } from '@/core/engine';
+import { narrate } from '@/core/narration';
+
+export type JourneyState = 'idle' | 'chegada' | 'treinamento' | 'contagem' | 'lancamento' | 'concluido';
 
 const gltfLoader = new GLTFLoader();
+
+// ---------------------------------------------------------------------------
+// Painel 3D — quiz/status desenhado com CanvasTexture para funcionar em WebXR
+// ---------------------------------------------------------------------------
+const PANEL_W = 4;
+const PANEL_H = 3;
+const CANVAS_W = 512;
+const CANVAS_H = 384;
+// Regiões dos botões no canvas (px, y de cima)
+const BTN_Y0 = [160, 215, 270, 325];
+const BTN_H_PX = 50;
+
+class JourneyPanel {
+  readonly group: THREE.Group;
+  readonly buttonHitboxes: { mesh: THREE.Mesh; id: string }[] = [];
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private texture: THREE.CanvasTexture;
+  private panelMesh: THREE.Mesh;
+
+  constructor(position: THREE.Vector3) {
+    this.group = new THREE.Group();
+    this.group.position.copy(position);
+
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = CANVAS_W;
+    this.canvas.height = CANVAS_H;
+    this.ctx = this.canvas.getContext('2d')!;
+    this.texture = new THREE.CanvasTexture(this.canvas);
+
+    const geo = new THREE.PlaneGeometry(PANEL_W, PANEL_H);
+    const mat = new THREE.MeshBasicMaterial({ map: this.texture, side: THREE.DoubleSide });
+    this.panelMesh = new THREE.Mesh(geo, mat);
+    this.group.add(this.panelMesh);
+
+    // Suporte do painel
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, position.y, 6),
+      new THREE.MeshStandardMaterial({ color: 0x888888 })
+    );
+    pole.position.set(0, -position.y / 2, 0);
+    this.group.add(pole);
+
+    // Hitboxes para os 4 botões de resposta
+    for (let i = 0; i < 4; i++) {
+      const yUV = (BTN_Y0[i] + BTN_H_PX / 2) / CANVAS_H;
+      const worldY = (0.5 - yUV) * PANEL_H;
+      const hb = new THREE.Mesh(
+        new THREE.BoxGeometry(PANEL_W * 0.9, (BTN_H_PX / CANVAS_H) * PANEL_H, 0.1),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hb.position.set(0, worldY, 0.06);
+      hb.userData = { bodyId: `quiz:${i}` };
+      this.group.add(hb);
+      this.buttonHitboxes.push({ mesh: hb, id: `quiz:${i}` });
+    }
+
+    this.renderIdle();
+  }
+
+  renderArrival() {
+    this.draw((ctx) => {
+      this.drawBackground(ctx, '#0a1628');
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = 'bold 28px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🚀 BEM-VINDO AO CENTRO DE CONTROLE', CANVAS_W / 2, 70);
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = '20px system-ui, sans-serif';
+      ctx.fillText('Prepare-se para a missão espacial!', CANVAS_W / 2, 120);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.fillText('Aguardando início do treinamento...', CANVAS_W / 2, 200);
+    });
+  }
+
+  renderQuestion(question: string, options: string[], feedback?: string, answered?: number, correct?: number) {
+    this.draw((ctx) => {
+      this.drawBackground(ctx, '#0a1628');
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎯 MISSÃO — TREINAMENTO', CANVAS_W / 2, 40);
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = '17px system-ui, sans-serif';
+      this.drawWrapped(ctx, question, 24, 80, CANVAS_W - 48, 22);
+
+      options.forEach((opt, i) => {
+        const y0 = BTN_Y0[i];
+        let bg = 'rgba(255,255,255,0.08)';
+        let border = 'rgba(255,255,255,0.2)';
+        if (answered !== undefined) {
+          if (i === correct) { bg = 'rgba(34,197,94,0.25)'; border = '#22c55e'; }
+          else if (i === answered && i !== correct) { bg = 'rgba(239,68,68,0.25)'; border = '#ef4444'; }
+        }
+        ctx.fillStyle = bg;
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(16, y0, CANVAS_W - 32, BTN_H_PX - 4, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e8eef7';
+        ctx.font = '15px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${i + 1}. ${opt}`, 28, y0 + 29);
+      });
+
+      if (feedback) {
+        ctx.fillStyle = answered === correct ? '#22c55e' : '#ef4444';
+        ctx.font = 'bold 16px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(feedback, CANVAS_W / 2, 365);
+      }
+    });
+  }
+
+  renderCountdown(seconds: number) {
+    this.draw((ctx) => {
+      this.drawBackground(ctx, '#0a0a1a');
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 24px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('CONTAGEM REGRESSIVA', CANVAS_W / 2, 60);
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = `bold ${seconds <= 3 ? '100' : '80'}px system-ui, sans-serif`;
+      ctx.fillText(seconds > 0 ? String(seconds) : 'IGNIÇÃO!', CANVAS_W / 2, 220);
+      ctx.font = '18px system-ui, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('Todos os sistemas nominais', CANVAS_W / 2, 310);
+    });
+  }
+
+  renderLaunch() {
+    this.draw((ctx) => {
+      this.drawBackground(ctx, '#0a0a1a');
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 32px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🚀 DECOLAGEM!', CANVAS_W / 2, 120);
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = '20px system-ui, sans-serif';
+      ctx.fillText('Aceleração nominal.', CANVAS_W / 2, 200);
+      ctx.fillText('Partindo para o espaço...', CANVAS_W / 2, 240);
+    });
+  }
+
+  renderIdle() {
+    this.draw((ctx) => {
+      this.drawBackground(ctx, '#060e1a');
+      ctx.fillStyle = '#334466';
+      ctx.font = '18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Painel de Missão', CANVAS_W / 2, CANVAS_H / 2);
+    });
+  }
+
+  private draw(fn: (ctx: CanvasRenderingContext2D) => void) {
+    this.ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    fn(this.ctx);
+    this.texture.needsUpdate = true;
+  }
+
+  private drawBackground(ctx: CanvasRenderingContext2D, color: string) {
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // Borda
+    ctx.strokeStyle = 'rgba(125,211,252,0.4)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(2, 2, CANVAS_W - 4, CANVAS_H - 4);
+  }
+
+  private drawWrapped(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number) {
+    const words = text.split(' ');
+    let line = '';
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line, x + maxW / 2, y);
+        line = word;
+        y += lineH;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, x + maxW / 2, y);
+  }
+
+  dispose() {
+    this.panelMesh.geometry.dispose();
+    (this.panelMesh.material as THREE.Material).dispose();
+    this.texture.dispose();
+    for (const hb of this.buttonHitboxes) {
+      hb.mesh.geometry.dispose();
+    }
+  }
+}
 
 export class BaseScene {
   readonly group: THREE.Group;
@@ -14,6 +214,20 @@ export class BaseScene {
   readonly rockets: Rocket[] = [];
   readonly hitboxes: { mesh: THREE.Mesh; id: string }[] = [];
   private monitors: THREE.Mesh[] = [];
+
+  // --- Máquina de estados da jornada ---
+  private journeyState: JourneyState = 'idle';
+  private journeyPanel: JourneyPanel | null = null;
+  private quizData: BodyData['mission'] | null = null;
+  private quizDifficulty: 'easy' | 'medium' = 'easy';
+  private quizAnswered: number | undefined = undefined;
+  private countdownSecs = 10;
+  private countdownElapsed = 0;
+  private launchElapsed = 0;
+  private chegadaElapsed = 0;
+
+  onJourneyComplete?: () => void;
+  onCameraRequest?: (pos: THREE.Vector3, target: THREE.Vector3) => void;
 
   constructor(astronautData: AstronautData[], rocketData: RocketData[], activeId: string | null) {
     this.group = new THREE.Group();
@@ -257,13 +471,116 @@ export class BaseScene {
   update(dt: number, timeSpeed: number) {
     for (const a of this.astronauts) a.update(dt, timeSpeed);
     for (const r of this.rockets) r.update(dt, timeSpeed);
-    // animar monitores
-    // monitores animados (flicker sutil) — reservado para evolução
+    this.tickJourney(dt);
+  }
+
+  // -------------------------------------------------------------------------
+  // Jornada terrestre: chegada → treinamento → contagem → lançamento → hub
+  // -------------------------------------------------------------------------
+
+  /**
+   * Inicia a jornada. Cria o painel 3D e começa o estado `chegada`.
+   * Deve ser chamado após rebuildSelectable() para que os hitboxes do
+   * painel sejam incluídos na lista de selectable de main.ts.
+   * Chame rebuildSelectable() novamente após esta função.
+   */
+  startJourney(bodyData: BodyData, onComplete: () => void, onCamera: (pos: THREE.Vector3, target: THREE.Vector3) => void) {
+    this.quizData = bodyData.mission;
+    this.onJourneyComplete = onComplete;
+    this.onCameraRequest = onCamera;
+    this.quizDifficulty = 'easy';
+    this.quizAnswered = undefined;
+
+    // Painel posicionado à frente dos astronautas, voltado para a câmera (+Z)
+    if (!this.journeyPanel) {
+      this.journeyPanel = new JourneyPanel(new THREE.Vector3(0, 2.5, 10));
+      this.group.add(this.journeyPanel.group);
+      for (const hb of this.journeyPanel.buttonHitboxes) {
+        this.hitboxes.push(hb);
+      }
+    }
+
+    this.setJourneyState('chegada');
+  }
+
+  handlePanelClick(optionIndex: number) {
+    if (this.journeyState !== 'treinamento' || !this.quizData || this.quizAnswered !== undefined) return;
+    const q = this.quizData[this.quizDifficulty];
+    this.quizAnswered = optionIndex;
+    const isCorrect = optionIndex === q.answer;
+    this.journeyPanel?.renderQuestion(q.q, q.options, isCorrect ? '✅ Correto!' : '❌ Errado!', optionIndex, q.answer);
+    if (isCorrect) {
+      narrate('treinamento_correto');
+      setTimeout(() => this.setJourneyState('contagem'), 2500);
+    } else {
+      narrate('treinamento_errado');
+      setTimeout(() => { this.quizAnswered = undefined; this.renderCurrentQuiz(); }, 2500);
+    }
+  }
+
+  private setJourneyState(state: JourneyState) {
+    this.journeyState = state;
+    switch (state) {
+      case 'chegada':
+        this.chegadaElapsed = 0;
+        this.journeyPanel?.renderArrival();
+        narrate('chegada');
+        this.onCameraRequest?.(new THREE.Vector3(0, 12, 30), new THREE.Vector3(0, 2, 0));
+        break;
+      case 'treinamento':
+        this.quizAnswered = undefined;
+        this.renderCurrentQuiz();
+        narrate('treinamento');
+        this.onCameraRequest?.(new THREE.Vector3(-3, 3, 22), new THREE.Vector3(0, 2, 10));
+        break;
+      case 'contagem':
+        this.countdownSecs = 10;
+        this.countdownElapsed = 0;
+        this.journeyPanel?.renderCountdown(10);
+        narrate('contagem');
+        this.onCameraRequest?.(new THREE.Vector3(5, 15, 10), new THREE.Vector3(12, 0, -5));
+        break;
+      case 'lancamento':
+        this.launchElapsed = 0;
+        this.journeyPanel?.renderLaunch();
+        narrate('lancamento');
+        for (const r of this.rockets) r.launch();
+        break;
+      case 'concluido':
+        narrate('transicao');
+        setTimeout(() => this.onJourneyComplete?.(), 2000);
+        break;
+    }
+  }
+
+  private renderCurrentQuiz() {
+    if (!this.quizData || !this.journeyPanel) return;
+    const q = this.quizData[this.quizDifficulty];
+    this.journeyPanel.renderQuestion(q.q, q.options);
+  }
+
+  private tickJourney(dt: number) {
+    if (this.journeyState === 'chegada') {
+      this.chegadaElapsed += dt;
+      if (this.chegadaElapsed >= 3) this.setJourneyState('treinamento');
+    } else if (this.journeyState === 'contagem') {
+      this.countdownElapsed += dt;
+      if (this.countdownElapsed >= 1) {
+        this.countdownSecs--;
+        this.countdownElapsed = 0;
+        this.journeyPanel?.renderCountdown(this.countdownSecs);
+        if (this.countdownSecs <= 0) this.setJourneyState('lancamento');
+      }
+    } else if (this.journeyState === 'lancamento') {
+      this.launchElapsed += dt;
+      if (this.launchElapsed >= 4) this.setJourneyState('concluido');
+    }
   }
 
   // A base é recriada a cada visita; sem isto cada ida e volta vaza
   // geometrias, texturas de letreiro/monitores e os modelos dos astronautas
   dispose() {
+    this.journeyPanel?.dispose();
     disposeObject3D(this.group);
   }
 }

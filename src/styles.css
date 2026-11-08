@@ -58,7 +58,7 @@ html, body {
 .loading.hidden { opacity: 0; pointer-events: none; }
 
 .loading__inner { text-align: center; width: min(420px, 80vw); }
-.loading__title { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.04em; margin-bottom: 1.4rem; }
+.loading__title { font-size: clamp(1.2rem, 4vw, 1.6rem); font-weight: 600; letter-spacing: 0.04em; margin-bottom: 1.4rem; }
 .loading__bar { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
 .loading__fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.2s linear; }
 .loading__status { margin-top: 0.8rem; font-size: 0.85rem; opacity: 0.7; }
@@ -82,12 +82,18 @@ html, body {
   background: rgba(125, 211, 252, 0.12);
   border: 1px solid var(--panel-border);
   color: var(--fg);
-  padding: 8px 14px;
+  padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
   border-radius: 8px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: clamp(0.8rem, 2.2vw, 0.85rem);
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s, transform 0.1s;
   pointer-events: auto;
+  touch-action: manipulation;
 }
 .btn:hover { background: rgba(125, 211, 252, 0.22); }
 .btn:active { transform: scale(0.97); }
@@ -105,9 +111,9 @@ html, body {
 
 .top-bar {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  top: max(12px, env(safe-area-inset-top, 12px));
+  left: max(12px, env(safe-area-inset-left, 12px));
+  right: max(12px, env(safe-area-inset-right, 12px));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -116,7 +122,7 @@ html, body {
 }
 .top-bar .interactive { pointer-events: auto; }
 
-.brand { font-weight: 600; font-size: 0.95rem; opacity: 0.85; }
+.brand { font-weight: 600; font-size: clamp(0.8rem, 2.5vw, 0.95rem); opacity: 0.85; }
 
 .scale-toggle {
   display: flex;
@@ -130,11 +136,14 @@ html, body {
   background: transparent;
   border: none;
   color: var(--fg);
-  padding: 5px 12px;
+  padding: clamp(5px, 1.5vw, 8px) clamp(10px, 3vw, 14px);
   border-radius: 999px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 2vw, 0.8rem);
   opacity: 0.6;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
 }
 .scale-toggle button.active { background: rgba(125,211,252,0.2); opacity: 1; }
 
@@ -198,11 +207,13 @@ html, body {
 .mission .opt {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
-  padding: 8px 10px;
+  padding: clamp(8px, 2vw, 12px) clamp(10px, 2.5vw, 14px);
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 2vw, 0.8rem);
   text-align: left;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 .mission .opt:hover { background: rgba(255,255,255,0.1); }
 .mission .opt.correct { background: rgba(34,197,94,0.2); border-color: #22c55e; }
@@ -215,11 +226,14 @@ html, body {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
   color: var(--fg);
-  padding: 4px 10px;
+  padding: clamp(4px, 1vw, 8px) clamp(10px, 2.5vw, 14px);
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: clamp(0.7rem, 1.8vw, 0.75rem);
   opacity: 0.6;
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
 }
 .difficulty button.active { opacity: 1; background: rgba(125,211,252,0.15); }
 
@@ -297,6 +311,41 @@ html, body {
 }
 
 @media (max-width: 600px) {
-  .side-panel { width: calc(100vw - 24px); top: auto; bottom: 140px; max-height: 40vh; }
-  .time-slider { bottom: 8px; }
+  .side-panel { width: calc(100vw - 24px); top: auto; bottom: clamp(100px, 20vh, 140px); max-height: 40vh; }
+  .time-slider { bottom: max(8px, env(safe-area-inset-bottom, 8px)); }
+  .vr-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(16px, env(safe-area-inset-right, 16px)); }
+}
+
+/* Aviso de rotação — VR Box exige modo paisagem */
+#rotate-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 999;
+  text-align: center;
+  padding: 32px;
+  pointer-events: auto;
+}
+#rotate-hint__icon {
+  font-size: 4rem;
+  animation: rotateHint 2s ease-in-out infinite;
+}
+#rotate-hint p {
+  font-size: clamp(0.9rem, 3vw, 1.1rem);
+  opacity: 0.9;
+  max-width: 300px;
+  line-height: 1.5;
+}
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(90deg); }
+}
+
+@media (orientation: portrait) {
+  #rotate-hint { display: flex; }
 }

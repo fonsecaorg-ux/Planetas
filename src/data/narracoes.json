@@ -1,0 +1,9 @@
+{
+  "chegada": "Bem-vindo ao Centro de Treinamento Espacial! Estamos aqui para preparar você para a maior aventura da sua vida. Observe ao redor: a plataforma de lançamento, os foguetes e sua equipe pronta para a missão.",
+  "treinamento": "Hora do treinamento! Antes de partir ao espaço, você precisa provar que conhece o Sistema Solar. Responda a pergunta no painel à sua frente.",
+  "treinamento_correto": "Excelente! Você está pronto para a missão. Iniciaremos a contagem regressiva para o lançamento.",
+  "treinamento_errado": "Não desanime! Revise suas anotações e tente novamente.",
+  "contagem": "Atenção tripulação, posições de lançamento. T menos dez, nove, oito, sete, seis, cinco, quatro, três, dois, um. Ignição!",
+  "lancamento": "Decolagem confirmada! O foguete está em rota de lançamento. Aceleração nominal. Bem-vindo ao espaço!",
+  "transicao": "Parabéns! Você completou o treinamento e está agora no espaço. Explore o Sistema Solar!"
+}

@@ -1,6 +1,7 @@
 import type { BodyData, ProgressState } from '@/data/types';
 import astronautsData from '@/data/astronauts.json';
 import type { ScaleMode } from '@/data/types';
+import { addEarthLink } from '@/ui/earthLink';
 
 export interface HUDCallbacks {
   onSelectBody: (id: string) => void;
@@ -16,6 +17,7 @@ export interface HUDCallbacks {
   onSpeak: (text: string) => void;
   onReset: () => void;
   onBack: () => void;
+  xrRenderer?: { xr: { getSession: () => XRSession | null } };
 }
 
 export class HUD {
@@ -68,6 +70,10 @@ export class HUD {
         </div>
 
         <div class="cert" id="cert"></div>
+      </div>
+      <div id="rotate-hint">
+        <div id="rotate-hint__icon">📱</div>
+        <p>Para a melhor experiência no VR Box, gire o celular para o modo <strong>paisagem</strong>.</p>
       </div>
     `;
 
@@ -168,6 +174,14 @@ export class HUD {
     card.querySelector('#speak-btn')?.addEventListener('click', () => {
       this.callbacks.onSpeak(body.curiosities.join('. '));
     });
+
+    // Botão "Ver a Terra de perto" aparece só no card da Terra
+    if (body.id === 'earth') {
+      const speakBtn = card.querySelector('#speak-btn');
+      if (speakBtn) {
+        addEarthLink(speakBtn.parentElement!, { xrRenderer: this.callbacks.xrRenderer as any });
+      }
+    }
   }
 
   private renderMission(body: BodyData) {
@@ -342,7 +356,9 @@ export class HUD {
     const el = this.root.querySelector('#progress-pill') as HTMLElement | null;
     if (!el) return;
     const visited = this.progress.visited.length;
-    const missions = Object.values(this.progress.completedMissions).filter((m) => m.correct).length;
+    const missions = Object.values(this.progress.completedMissions).reduce((sum, m) => {
+      return sum + (m.easy?.correct ? 1 : 0) + (m.medium?.correct ? 1 : 0);
+    }, 0);
     el.textContent = `Visitados ${visited}/${this.bodyCount} · Missões ${missions}`;
   }
 }

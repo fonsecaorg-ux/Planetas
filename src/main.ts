@@ -17,6 +17,7 @@ import { createStarfield } from '@/core/starfield';
 import { PerfOverlay } from '@/core/perfOverlay';
 import rocketsData from '@/data/rockets.json';
 import { AudioEngine } from '@/core/audio';
+import { CloudSync } from '@/core/cloudSync';
 import astronautsData from '@/data/astronauts.json';
 
 // Vista geral de cada modo, olhando para o Sol. No real a Terra está a
@@ -64,6 +65,8 @@ new RGBELoader().load('/textures/env.hdr', (tex) => {
 const data = loadSolarSystemData();
 const store = new ProgressStore();
 const audio = new AudioEngine();
+// Sync anônimo com Firestore (no-op se VITE_FIREBASE_* não estiver configurado)
+new CloudSync(store);
 const progress = store.get();
 
 let scaleMode: ScaleMode = progress.scaleMode;
@@ -134,6 +137,7 @@ const hud = new HUD(uiRoot, {
   onSpeak: (text) => audio.speak(text),
   onReset: () => store.reset(),
   onBack: () => goBackToHub(),
+  xrRenderer: engine.renderer,
 }, progress);
 hud.setBodyCount(data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet').length);
 hud.updateProgress(store.get());
@@ -184,8 +188,8 @@ function rebuildSelectable() {
     return;
   }
   for (const b of hub.bodies.values()) {
-    (b.mesh as any).userData = { bodyId: b.data.id };
-    selectable.push(b.mesh);
+    // Usa hitbox (1.75× raio visual) em vez do mesh para melhor área de toque
+    selectable.push(b.hitbox);
   }
   if (hub.station) selectable.push(hub.station.hitbox);
   for (const r of hub.rockets) {
@@ -204,6 +208,23 @@ function selecionarNoPonto(clientX: number, clientY: number) {
   const id = hits.length ? (hits[0].object as any).userData?.bodyId : undefined;
   if (id) selectBody(id);
 }
+
+// Highlight de hover — corpo atualmente sob o cursor
+let hoveredBodyId: string | null = null;
+function atualizarHover(clientX: number, clientY: number) {
+  if (currentScene !== 'hub' && currentScene !== 'planet') return;
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, engine.camera);
+  const hits = raycaster.intersectObjects(selectable, true);
+  const id: string | undefined = hits.length ? (hits[0].object as any).userData?.bodyId : undefined;
+  if (id === hoveredBodyId) return;
+  if (hoveredBodyId) hub.getBody(hoveredBodyId)?.setHighlight(false);
+  hoveredBodyId = id ?? null;
+  if (hoveredBodyId) hub.getBody(hoveredBodyId)?.setHighlight(true);
+}
+canvas.addEventListener('pointermove', (e) => atualizarHover(e.clientX, e.clientY));
 
 // Um handler só para mouse e toque. click + touchend disparavam juntos no
 // celular, e soltar o dedo depois de girar a câmera selecionava o que estava embaixo
@@ -337,6 +358,11 @@ function selectBody(id: string) {
     viajar(pos.clone().add(new THREE.Vector3(0, 6, 10)), pos, () => hud.showStation());
     return;
   }
+  if (id.startsWith('quiz:')) {
+    const idx = parseInt(id.slice('quiz:'.length));
+    baseScene?.handlePanelClick(idx);
+    return;
+  }
   if (id === 'building') {
     hud.showStation(); // reuse card style? show building info
     // override card content
@@ -448,6 +474,19 @@ function switchToBase() {
   posicionarObservador(new THREE.Vector3(0, 12, 30), new THREE.Vector3(0, 2, 0));
   hud.hidePlanet();
   hud.setScaleIndicator('Base de lançamento terrestre — Centro de Controle');
+
+  // Inicia a jornada terrestre se ainda não foi concluída
+  if (!store.get().journeyDone) {
+    const earthBody = data.bodies.find((b) => b.id === 'earth');
+    if (earthBody && baseScene) {
+      baseScene.startJourney(
+        earthBody,
+        () => { store.setJourneyDone(); goBackToHub(); },
+        (pos, target) => { viajar(pos, target); }
+      );
+      rebuildSelectable(); // inclui hitboxes do painel de quiz
+    }
+  }
 }
 
 function enterTour() {

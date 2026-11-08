@@ -91,14 +91,20 @@ export type ScaleMode = 'visual' | 'real';
 
 export type Difficulty = 'easy' | 'medium';
 
+export interface MissionRecord {
+  easy?: { correct: boolean; at: number };
+  medium?: { correct: boolean; at: number };
+}
+
 export interface ProgressState {
   version: number;
   visited: string[];
-  completedMissions: Record<string, { difficulty: Difficulty; correct: boolean; at: number }>;
+  completedMissions: Record<string, MissionRecord>;
   certificateName: string | null;
   certificateDate: string | null;
   scaleMode: ScaleMode;
   timeSpeed: number;
   onboardingDone: boolean;
   activeAstronaut: string | null;
+  journeyDone?: boolean;
 }

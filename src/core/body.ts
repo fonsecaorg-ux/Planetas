@@ -41,6 +41,8 @@ export class CelestialBody {
   readonly group: THREE.Group;
   readonly orbitGroup: THREE.Group;
   readonly mesh: THREE.Mesh;
+  /** Esfera invisível 1.75× o raio visual — usada exclusivamente para raycasting. */
+  readonly hitbox: THREE.Mesh;
   readonly radius: number;
   private atmosphere?: THREE.Mesh;
   private cloudLayer?: THREE.Mesh;
@@ -76,6 +78,12 @@ export class CelestialBody {
       : new THREE.MeshStandardMaterial({ color: new THREE.Color(opts.data.color), roughness: 0.9, metalness: 0 });
     this.mesh = new THREE.Mesh(this.highGeo, mat);
     this.group.add(this.mesh);
+
+    // Hitbox invisível: área de toque/seleção maior que a geometria visual
+    const hitboxGeo = new THREE.SphereGeometry(r * 1.75, 8, 8);
+    this.hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({ visible: false }));
+    this.hitbox.userData = { bodyId: opts.data.id };
+    this.group.add(this.hitbox);
 
     this.loadTextures(opts.data);
 
@@ -286,10 +294,20 @@ export class CelestialBody {
     this.group.getWorldPosition(target);
   }
 
+  /** Liga/desliga glow de hover no mesh visível (apenas MeshStandardMaterial). */
+  setHighlight(on: boolean) {
+    const mat = this.mesh.material;
+    if (mat instanceof THREE.MeshStandardMaterial) {
+      mat.emissive.setHex(on ? 0x1a3a66 : 0x000000);
+      mat.emissiveIntensity = on ? 1.5 : 0;
+    }
+  }
+
   dispose() {
     this.disposed = true;
     this.highGeo.dispose();
     this.lowGeo.dispose();
+    this.hitbox.geometry.dispose();
     disposeMaterial(this.mesh.material as THREE.Material);
     for (const m of [this.atmosphere, this.ring, this.cloudLayer]) {
       if (!m) continue;
