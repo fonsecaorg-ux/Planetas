@@ -1,0 +1,557 @@
+{
+  "version": "1.0.0",
+  "scaleAUkm": 149597870.7,
+  "bodies": [
+    {
+      "id": "sun",
+      "name": "Sol",
+      "type": "star",
+      "radiusKm": 696340,
+      "massKg": "1.989e30",
+      "distanceAU": 0,
+      "distanceKm": 0,
+      "orbitalPeriodDays": 0,
+      "rotationPeriodHours": 609.12,
+      "temperatureK": 5778,
+      "gravityRelative": 27.4,
+      "atmosphere": "Hidrogênio e hélio (plasma)",
+      "moons": 0,
+      "color": "#fff4d6",
+      "texture": "sun.jpg",
+      "curiosities": [
+        "Contém 99,86% da massa de todo o sistema solar.",
+        "A luz do Sol leva cerca de 8 minutos e 20 segundos para chegar à Terra.",
+        "Sua superfície é mais fria que sua coroa — um mistério ainda estudado."
+      ],
+      "mission": {
+        "easy": { "q": "O Sol é uma…", "options": ["Estrela", "Planeta", "Lua", "Asteroide"], "answer": 0 },
+        "medium": { "q": "Quanto tempo a luz do Sol leva para chegar à Terra?", "options": ["8 segundos", "8 minutos", "8 horas", "8 dias"], "answer": 1 }
+      }
+    },
+    {
+      "id": "mercury",
+      "name": "Mercúrio",
+      "type": "planet",
+      "radiusKm": 2439.7,
+      "massKg": "3.285e23",
+      "distanceAU": 0.387,
+      "distanceKm": 57909050,
+      "orbitalPeriodDays": 87.97,
+      "rotationPeriodHours": 1407.6,
+      "temperatureK": 440,
+      "gravityRelative": 0.38,
+      "atmosphere": "Exosfera tênue (O, Na, H, He)",
+      "moons": 0,
+      "color": "#b5b5b5",
+      "texture": "mercury.jpg",
+      "curiosities": [
+        "O planeta mais rápido do sistema solar: completa uma órbita em 88 dias terrestres.",
+        "Não tem atmosfera significativa; temperaturas variam de -180°C a 430°C.",
+        "Um dia em Mercúrio dura 2/3 de um ano mercuriano."
+      ],
+      "mission": {
+        "easy": { "q": "Qual é o planeta mais próximo do Sol?", "options": ["Vênus", "Mercúrio", "Terra", "Marte"], "answer": 1 },
+        "medium": { "q": "Quantos dias terrestres Mercúrio leva para orbitar o Sol?", "options": ["365", "88", "225", "687"], "answer": 1 }
+      }
+    },
+    {
+      "id": "venus",
+      "name": "Vênus",
+      "type": "planet",
+      "radiusKm": 6051.8,
+      "massKg": "4.867e24",
+      "distanceAU": 0.723,
+      "distanceKm": 108208000,
+      "orbitalPeriodDays": 224.7,
+      "rotationPeriodHours": 5832.5,
+      "temperatureK": 737,
+      "gravityRelative": 0.91,
+      "atmosphere": "CO₂ (96,5%), N₂, nuvens de ácido sulfúrico",
+      "moons": 0,
+      "color": "#e8c87a",
+      "texture": "venus.jpg",
+      "atmosphereGlow": true,
+      "curiosities": [
+        "Gira no sentido contrário ao dos outros planetas (rotação retrógrada).",
+        "É o planeta mais quente do sistema solar, mais quente que Mercúrio.",
+        "Um dia em Vênus é mais longo que um ano venusiano."
+      ],
+      "mission": {
+        "easy": { "q": "Vênus é mais quente que…", "options": ["Mercúrio", "Terra", "Marte", "Todos acima"], "answer": 3 },
+        "medium": { "q": "A rotação de Vênus é…", "options": ["Igual à Terra", "Retrógrada (ao contrário)", "Inexistente", "Caótica"], "answer": 1 }
+      }
+    },
+    {
+      "id": "earth",
+      "name": "Terra",
+      "type": "planet",
+      "radiusKm": 6371,
+      "massKg": "5.972e24",
+      "distanceAU": 1.0,
+      "distanceKm": 149597870.7,
+      "orbitalPeriodDays": 365.25,
+      "rotationPeriodHours": 23.93,
+      "temperatureK": 288,
+      "gravityRelative": 1.0,
+      "atmosphere": "N₂ (78%), O₂ (21%), Ar, CO₂",
+      "moons": 1,
+      "color": "#2b6cb0",
+      "texture": "earth_day.jpg",
+      "nightTexture": "earth_night.jpg",
+      "cloudTexture": "earth_clouds.jpg",
+      "atmosphereGlow": true,
+      "curiosities": [
+        "Único corpo celeste conhecido com vida.",
+        "71% da superfície é coberta por água.",
+        "O campo magnético protege a superfície da radiação solar."
+      ],
+      "mission": {
+        "easy": { "q": "Quantos satélites naturais a Terra tem?", "options": ["0", "1", "2", "4"], "answer": 1 },
+        "medium": { "q": "Qual é a composição principal da atmosfera terrestre?", "options": ["CO₂", "Hidrogênio", "Nitrogênio", "Metano"], "answer": 2 }
+      },
+      "satellites": [
+        {
+          "id": "moon",
+          "name": "Lua",
+          "radiusKm": 1737.4,
+          "distanceKm": 384400,
+          "orbitalPeriodDays": 27.32,
+          "texture": "moon.jpg",
+          "color": "#c8c8c8"
+        }
+      ]
+    },
+    {
+      "id": "mars",
+      "name": "Marte",
+      "type": "planet",
+      "radiusKm": 3389.5,
+      "massKg": "6.39e23",
+      "distanceAU": 1.524,
+      "distanceKm": 227939200,
+      "orbitalPeriodDays": 686.98,
+      "rotationPeriodHours": 24.62,
+      "temperatureK": 210,
+      "gravityRelative": 0.38,
+      "atmosphere": "CO₂ (95%), N₂, Ar",
+      "moons": 2,
+      "color": "#c1440e",
+      "texture": "mars.jpg",
+      "normalMap": "mars_normal.jpg",
+      "curiosities": [
+        "O Monte Olimpo é o maior vulcão do sistema solar (21 km de altura).",
+        "Tem estações do ano como a Terra, mas duram o dobro.",
+        "O pôr do sol em Marte é azulado, ao contrário do terrestre."
+      ],
+      "mission": {
+        "easy": { "q": "Marte é conhecido como o planeta…", "options": ["Azul", "Vermelho", "Verde", "Amarelo"], "answer": 1 },
+        "medium": { "q": "Quais são as luas de Marte?", "options": ["Ío e Europa", "Fobos e Deimos", "Titã e Reia", "Ganimedes e Calisto"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "phobos", "name": "Fobos", "radiusKm": 11.27, "distanceKm": 9376, "orbitalPeriodDays": 0.32, "color": "#8a7a6a" },
+        { "id": "deimos", "name": "Deimos", "radiusKm": 6.2, "distanceKm": 23463, "orbitalPeriodDays": 1.26, "color": "#9a8a7a" }
+      ]
+    },
+    {
+      "id": "asteroid-belt",
+      "name": "Cinturão de Asteroides",
+      "type": "belt",
+      "radiusKm": 0,
+      "massKg": "2.39e21",
+      "distanceAU": 2.7,
+      "distanceKm": 403800000,
+      "orbitalPeriodDays": 1680,
+      "rotationPeriodHours": 0,
+      "temperatureK": 165,
+      "gravityRelative": 0,
+      "atmosphere": "Nenhuma",
+      "moons": 0,
+      "color": "#8a7a6a",
+      "curiosities": [
+        "Localizado entre as órbitas de Marte e Júpiter.",
+        "Contém milhões de asteroides, mas a maioria é pequena.",
+        "Ceres, o maior asteroide, é considerado planeta anão."
+      ],
+      "mission": {
+        "easy": { "q": "Onde fica o cinturão de asteroides?", "options": ["Entre Terra e Marte", "Entre Marte e Júpiter", "Entre Júpiter e Saturno", "Além de Netuno"], "answer": 1 },
+        "medium": { "q": "O maior objeto do cinturão de asteroides é…", "options": ["Vesta", "Pallas", "Ceres", "Juno"], "answer": 2 }
+      }
+    },
+    {
+      "id": "jupiter",
+      "name": "Júpiter",
+      "type": "planet",
+      "radiusKm": 69911,
+      "massKg": "1.898e27",
+      "distanceAU": 5.203,
+      "distanceKm": 778570000,
+      "orbitalPeriodDays": 4332.59,
+      "rotationPeriodHours": 9.925,
+      "temperatureK": 165,
+      "gravityRelative": 2.53,
+      "atmosphere": "H₂ (90%), He (10%), amônia, metano",
+      "moons": 95,
+      "color": "#d8ca9d",
+      "texture": "jupiter.jpg",
+      "animatedClouds": true,
+      "curiosities": [
+        "A Grande Mancha Vermelha é uma tempestade maior que a Terra.",
+        "Júpiter tem o dia mais curto de todos os planetas (≈10h).",
+        "Seu campo magnético é 20.000 vezes mais forte que o da Terra."
+      ],
+      "mission": {
+        "easy": { "q": "Júpiter é o planeta…", "options": ["Menor", "Mais massivo", "Mais quente", "Mais distante"], "answer": 1 },
+        "medium": { "q": "A Grande Mancha Vermelha de Júpiter é…", "options": ["Um vulcão", "Uma tempestade", "Um oceano", "Um continente"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "io", "name": "Ío", "radiusKm": 1821.6, "distanceKm": 421700, "orbitalPeriodDays": 1.77, "color": "#e8d080" },
+        { "id": "europa", "name": "Europa", "radiusKm": 1560.8, "distanceKm": 671100, "orbitalPeriodDays": 3.55, "color": "#c8d8e8" },
+        { "id": "ganymede", "name": "Ganimedes", "radiusKm": 2634.1, "distanceKm": 1070400, "orbitalPeriodDays": 7.15, "color": "#a0a0a0" },
+        { "id": "callisto", "name": "Calisto", "radiusKm": 2410.3, "distanceKm": 1882700, "orbitalPeriodDays": 16.69, "color": "#6a6a6a" },
+        { "id": "amalthea", "name": "Amalteia", "radiusKm": 83.5, "distanceKm": 181400, "orbitalPeriodDays": 0.498, "color": "#c08060" }
+      ]
+    },
+    {
+      "id": "saturn",
+      "name": "Saturno",
+      "type": "planet",
+      "radiusKm": 58232,
+      "massKg": "5.683e26",
+      "distanceAU": 9.537,
+      "distanceKm": 1433530000,
+      "orbitalPeriodDays": 10759.22,
+      "rotationPeriodHours": 10.7,
+      "temperatureK": 134,
+      "gravityRelative": 1.07,
+      "atmosphere": "H₂ (96%), He (3%), metano, amônia",
+      "moons": 146,
+      "color": "#e8d8a0",
+      "texture": "saturn.jpg",
+      "rings": true,
+      "curiosities": [
+        "Seus anéis são feitos de gelo e rocha, com espessura de apenas ~10 m em alguns pontos.",
+        "Saturno é tão pouco denso que flutuaria na água (se houvesse oceano grande o suficiente).",
+        "A lua Titã tem uma atmosfera mais densa que a da Terra."
+      ],
+      "mission": {
+        "easy": { "q": "Saturno é famoso por…", "options": ["Anéis", "Mancha vermelha", "Vulcões", "Oceano"], "answer": 0 },
+        "medium": { "q": "A lua mais famosa de Saturno é…", "options": ["Europa", "Titã", "Tritão", "Caronte"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "titan", "name": "Titã", "radiusKm": 2574.7, "distanceKm": 1221870, "orbitalPeriodDays": 15.95, "color": "#d8b060", "hasAtmosphere": true },
+        { "id": "enceladus", "name": "Encélado", "radiusKm": 252.1, "distanceKm": 238000, "orbitalPeriodDays": 1.37, "color": "#f0f0f0" },
+        { "id": "mimas", "name": "Mimas", "radiusKm": 198.2, "distanceKm": 185500, "orbitalPeriodDays": 0.942, "color": "#c8c8c8" },
+        { "id": "rhea", "name": "Reia", "radiusKm": 763.8, "distanceKm": 527100, "orbitalPeriodDays": 4.518, "color": "#d0d0d0" },
+        { "id": "iapetus", "name": "Jápeto", "radiusKm": 734.5, "distanceKm": 3560800, "orbitalPeriodDays": 79.32, "color": "#a09080" }
+      ]
+    },
+    {
+      "id": "uranus",
+      "name": "Urano",
+      "type": "planet",
+      "radiusKm": 25362,
+      "massKg": "8.681e25",
+      "distanceAU": 19.191,
+      "distanceKm": 2872460000,
+      "orbitalPeriodDays": 30688.5,
+      "rotationPeriodHours": 17.24,
+      "temperatureK": 76,
+      "gravityRelative": 0.89,
+      "atmosphere": "H₂, He, metano (cor azul-esverdeada)",
+      "moons": 28,
+      "color": "#7de3e3",
+      "texture": "uranus.jpg",
+      "tilt": 97.77,
+      "rings": true,
+      "thinRings": true,
+      "curiosities": [
+        "Gira 'deitado': seu eixo está inclinado 98°.",
+        "Foi o primeiro planeta descoberto com telescópio (1781).",
+        "Tem o vento mais frio do sistema solar (-224°C)."
+      ],
+      "satellites": [
+        { "id": "miranda", "name": "Miranda", "radiusKm": 235.8, "distanceKm": 129900, "orbitalPeriodDays": 1.41, "color": "#c0c0c0" },
+        { "id": "ariel", "name": "Ariel", "radiusKm": 578.9, "distanceKm": 190900, "orbitalPeriodDays": 2.52, "color": "#d0d0d0" },
+        { "id": "umbriel", "name": "Umbriel", "radiusKm": 584.7, "distanceKm": 266000, "orbitalPeriodDays": 4.14, "color": "#808080" },
+        { "id": "titania", "name": "Titânia", "radiusKm": 788.4, "distanceKm": 436300, "orbitalPeriodDays": 8.71, "color": "#b0b0b0" },
+        { "id": "oberon", "name": "Oberon", "radiusKm": 761.4, "distanceKm": 583500, "orbitalPeriodDays": 13.46, "color": "#a0a0a0" }
+      ],
+      "mission": {
+        "easy": { "q": "Urano foi descoberto com…", "options": ["Olho nu", "Telescópio", "Sonda", "Radar"], "answer": 1 },
+        "medium": { "q": "O que é especial na rotação de Urano?", "options": ["É muito rápida", "É retrógrada", "Está deitado (98°)", "Não gira"], "answer": 2 }
+      }
+    },
+    {
+      "id": "neptune",
+      "name": "Netuno",
+      "type": "planet",
+      "radiusKm": 24622,
+      "massKg": "1.024e26",
+      "distanceAU": 30.069,
+      "distanceKm": 4495100000,
+      "orbitalPeriodDays": 60182,
+      "rotationPeriodHours": 16.11,
+      "temperatureK": 72,
+      "gravityRelative": 1.14,
+      "atmosphere": "H₂, He, metano (cor azul profundo)",
+      "moons": 16,
+      "color": "#3f51b5",
+      "texture": "neptune.jpg",
+      "curiosities": [
+        "Os ventos mais rápidos do sistema solar: até 2.100 km/h.",
+        "Leva 165 anos terrestres para dar uma volta no Sol.",
+        "Tritão, sua maior lua, gira no sentido contrário (órbita retrógrada)."
+      ],
+      "mission": {
+        "easy": { "q": "Netuno é o planeta…", "options": ["Mais próximo do Sol", "Mais distante (clássico)", "Mais quente", "Menor"], "answer": 1 },
+        "medium": { "q": "Qual é a velocidade máxima dos ventos em Netuno?", "options": ["500 km/h", "1.000 km/h", "2.100 km/h", "5.000 km/h"], "answer": 2 }
+      },
+      "satellites": [
+        { "id": "triton", "name": "Tritão", "radiusKm": 1353.4, "distanceKm": 354759, "orbitalPeriodDays": 5.88, "color": "#c8d0e0", "retrograde": true },
+        { "id": "proteus", "name": "Proteu", "radiusKm": 210, "distanceKm": 117600, "orbitalPeriodDays": 1.12, "color": "#909090" },
+        { "id": "nereid", "name": "Nereida", "radiusKm": 170, "distanceKm": 5513800, "orbitalPeriodDays": 360.14, "color": "#a0a0a0" }
+      ]
+    },
+    {
+      "id": "pluto",
+      "name": "Plutão",
+      "type": "dwarf",
+      "radiusKm": 1188.3,
+      "massKg": "1.303e22",
+      "distanceAU": 39.482,
+      "distanceKm": 5906380000,
+      "orbitalPeriodDays": 90560,
+      "rotationPeriodHours": 153.3,
+      "temperatureK": 44,
+      "gravityRelative": 0.063,
+      "atmosphere": "N₂, CH₄, CO (tênue, congela ao se afastar do Sol)",
+      "moons": 5,
+      "color": "#c8a888",
+      "texture": "pluto.jpg",
+      "curiosities": [
+        "Reclassificado como planeta anão em 2006.",
+        "Tem uma 'coração' de gelo de nitrogênio (Tombaugh Regio).",
+        "Sua órbita cruza a de Netuno."
+      ],
+      "mission": {
+        "easy": { "q": "Plutão é classificado como…", "options": ["Planeta", "Planeta anão", "Asteroide", "Cometa"], "answer": 1 },
+        "medium": { "q": "O que é a Tombaugh Regio?", "options": ["Um vulcão", "Uma região em forma de coração", "Um oceano", "Um canyon"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "charon", "name": "Caronte", "radiusKm": 606, "distanceKm": 19591, "orbitalPeriodDays": 6.39, "color": "#a0a0a0" },
+        { "id": "nix", "name": "Nix", "radiusKm": 49, "distanceKm": 48690, "orbitalPeriodDays": 24.9, "color": "#c0c0c0" },
+        { "id": "hydra", "name": "Hidra", "radiusKm": 61, "distanceKm": 64740, "orbitalPeriodDays": 38.2, "color": "#b0b0b0" }
+      ]
+    },
+    {
+      "id": "ceres",
+      "name": "Ceres",
+      "type": "dwarf",
+      "radiusKm": 469.7,
+      "massKg": "9.1e20",
+      "distanceAU": 2.77,
+      "distanceKm": 413690000,
+      "orbitalPeriodDays": 1680,
+      "rotationPeriodHours": 9.07,
+      "temperatureK": 168,
+      "gravityRelative": 0.029,
+      "atmosphere": "Exosfera de vapor d'água (intermitente)",
+      "moons": 0,
+      "color": "#a09080",
+      "curiosities": [
+        "Maior objeto do cinturão de asteroides.",
+        "Tem água em forma de gelo e possivelmente um oceano subterrâneo.",
+        "Foi o primeiro asteroide descoberto (1801)."
+      ],
+      "mission": {
+        "easy": { "q": "Ceres é o maior…", "options": ["Planeta", "Asteroide/planeta anão", "Cometa", "Lua"], "answer": 1 },
+        "medium": { "q": "Ceres fica em qual região?", "options": ["Cinturão de Kuiper", "Cinturão de asteroides", "Além de Netuno", "Entre Terra e Marte"], "answer": 1 }
+      }
+    },
+    {
+      "id": "eris",
+      "name": "Éris",
+      "type": "dwarf",
+      "radiusKm": 1163,
+      "massKg": "1.647e22",
+      "distanceAU": 67.78,
+      "distanceKm": 1.01e10,
+      "orbitalPeriodDays": 203830,
+      "rotationPeriodHours": 25.9,
+      "temperatureK": 42,
+      "gravityRelative": 0.084,
+      "atmosphere": "Metano congelado na superfície",
+      "moons": 1,
+      "color": "#d0d0d0",
+      "curiosities": [
+        "Mais massivo que Plutão.",
+        "Sua descoberta levou à reclassificação de Plutão.",
+        "Tem uma órbita muito excêntrica e inclinada."
+      ],
+      "mission": {
+        "easy": { "q": "Éris é mais massivo que…", "options": ["Netuno", "Plutão", "Marte", "Terra"], "answer": 1 },
+        "medium": { "q": "A descoberta de Éris levou a…", "options": ["Descoberta de novos planetas", "Reclassificação de Plutão", "Fim da exploração espacial", "Nada"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "dysnomia", "name": "Disnomia", "radiusKm": 350, "distanceKm": 37350, "orbitalPeriodDays": 15.77, "color": "#a0a0a0" }
+      ]
+    },
+    {
+      "id": "haumea",
+      "name": "Haumea",
+      "type": "dwarf",
+      "radiusKm": 816,
+      "massKg": "4.006e21",
+      "distanceAU": 43.13,
+      "distanceKm": 6.45e9,
+      "orbitalPeriodDays": 104069,
+      "rotationPeriodHours": 3.92,
+      "temperatureK": 32,
+      "gravityRelative": 0.045,
+      "atmosphere": "Nenhuma significativa",
+      "moons": 2,
+      "color": "#b0a090",
+      "curiosities": [
+        "Gira muito rápido (dia de ~4 horas) — formato de 'ovo'.",
+        "Tem um anel e duas luas.",
+        "Feito quase inteiramente de rocha coberta por gelo."
+      ],
+      "mission": {
+        "easy": { "q": "Haumea gira…", "options": ["Muito devagar", "Muito rápido", "Não gira", "Aleatoriamente"], "answer": 1 },
+        "medium": { "q": "Haumea tem formato de…", "options": ["Esfera perfeita", "Ovo/elipsoide", "Cubo", "Anel"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "hiiaka", "name": "Hi'iaka", "radiusKm": 195, "distanceKm": 49880, "orbitalPeriodDays": 49.5, "color": "#a0a0a0" },
+        { "id": "namaka", "name": "Namaka", "radiusKm": 85, "distanceKm": 25660, "orbitalPeriodDays": 18.3, "color": "#909090" }
+      ]
+    },
+    {
+      "id": "makemake",
+      "name": "Makemake",
+      "type": "dwarf",
+      "radiusKm": 715,
+      "massKg": "3.1e21",
+      "distanceAU": 45.79,
+      "distanceKm": 6.85e9,
+      "orbitalPeriodDays": 112897,
+      "rotationPeriodHours": 22.48,
+      "temperatureK": 30,
+      "gravityRelative": 0.05,
+      "atmosphere": "Metano (tênue)",
+      "moons": 1,
+      "color": "#c09070",
+      "curiosities": [
+        "Segundo maior objeto do cinturão de Kuiper.",
+        "Tem uma superfície vermelha-acastanhada.",
+        "Nomeado a partir da mitologia da Ilha de Páscoa."
+      ],
+      "mission": {
+        "easy": { "q": "Makemake está no…", "options": ["Cinturão de asteroides", "Cinturão de Kuiper", "Além de Éris", "Entre Marte e Júpiter"], "answer": 1 },
+        "medium": { "q": "A cor da superfície de Makemake é…", "options": ["Azul", "Vermelha-acastanhada", "Branca", "Verde"], "answer": 1 }
+      },
+      "satellites": [
+        { "id": "mk2", "name": "S/2015 (136472) 1", "radiusKm": 87, "distanceKm": 21100, "orbitalPeriodDays": 12.4, "color": "#909090" }
+      ]
+    },
+    {
+      "id": "kuiper-belt",
+      "name": "Cinturão de Kuiper",
+      "type": "belt",
+      "radiusKm": 0,
+      "massKg": "1e23",
+      "distanceAU": 45,
+      "distanceKm": 6731904181.5,
+      "orbitalPeriodDays": 100000,
+      "rotationPeriodHours": 0,
+      "temperatureK": 40,
+      "gravityRelative": 0,
+      "atmosphere": "Nenhuma",
+      "moons": 0,
+      "color": "#6a7a8a",
+      "curiosities": [
+        "Região além de Netuno com milhares de corpos gelados.",
+        "Origem de muitos cometas de período curto.",
+        "Plutão é o membro mais famoso deste cinturão."
+      ],
+      "mission": {
+        "easy": { "q": "O cinturão de Kuiper fica…", "options": ["Entre Marte e Júpiter", "Além de Netuno", "Entre Terra e Marte", "No centro do sistema"], "answer": 1 },
+        "medium": { "q": "O cinturão de Kuiper é composto principalmente de…", "options": ["Rocha e metal", "Gelo e rocha", "Gás", "Plasma"], "answer": 1 }
+      }
+    },
+    {
+      "id": "proxima-b",
+      "name": "Proxima Centauri b",
+      "type": "exoplanet",
+      "radiusKm": 7160,
+      "massKg": "1.17e25",
+      "distanceAU": 268000,
+      "distanceKm": 4.01e13,
+      "orbitalPeriodDays": 11.186,
+      "rotationPeriodHours": 0,
+      "temperatureK": 234,
+      "gravityRelative": 1.1,
+      "atmosphere": "Desconhecida (possível atmosfera fina)",
+      "moons": 0,
+      "color": "#8a6a5a",
+      "curiosities": [
+        "Exoplaneta mais próximo da Terra (~4,24 anos-luz).",
+        "Orbita a estrela Proxima Centauri, uma anã vermelha.",
+        "Pode estar na zona habitável — mas recebe muita radiação UV."
+      ],
+      "mission": {
+        "easy": { "q": "Proxima Centauri b fica a cerca de…", "options": ["4,24 anos-luz", "424 anos-luz", "4,24 UA", "42 UA"], "answer": 0 },
+        "medium": { "q": "Proxima Centauri b orbita…", "options": ["O Sol", "Proxima Centauri", "Alpha Centauri A", "Sirius"], "answer": 1 }
+      }
+    },
+    {
+      "id": "trappist-1e",
+      "name": "TRAPPIST-1 e",
+      "type": "exoplanet",
+      "radiusKm": 5800,
+      "massKg": "4.14e24",
+      "distanceAU": 3910000,
+      "distanceKm": 3.9e16,
+      "orbitalPeriodDays": 6.1,
+      "rotationPeriodHours": 0,
+      "temperatureK": 251,
+      "gravityRelative": 0.93,
+      "atmosphere": "Possível atmosfera de N2/O2 (a confirmar)",
+      "moons": 0,
+      "color": "#5a7a8a",
+      "curiosities": [
+        "Um dos 7 planetas do sistema TRAPPIST-1.",
+        "Tem tamanho e densidade próximos aos da Terra.",
+        "A 40 anos-luz, é um dos alvos prioritários do JWST."
+      ],
+      "mission": {
+        "easy": { "q": "TRAPPIST-1 e é do tamanho…", "options": ["De Júpiter", "Da Terra", "De Mercúrio", "Do Sol"], "answer": 1 },
+        "medium": { "q": "Quantos planetas tem o sistema TRAPPIST-1?", "options": ["3", "5", "7", "9"], "answer": 2 }
+      }
+    },
+    {
+      "id": "kepler-186f",
+      "name": "Kepler-186 f",
+      "type": "exoplanet",
+      "radiusKm": 6800,
+      "massKg": "1.0e25",
+      "distanceAU": 4960000,
+      "distanceKm": 7.4e16,
+      "orbitalPeriodDays": 129.9,
+      "rotationPeriodHours": 0,
+      "temperatureK": 188,
+      "gravityRelative": 1.1,
+      "atmosphere": "Desconhecida",
+      "moons": 0,
+      "color": "#6a5a4a",
+      "curiosities": [
+        "Primeiro exoplaneta do tamanho da Terra descoberto na zona habitável.",
+        "Orbita uma anã vermelha a 580 anos-luz.",
+        "Pode ser um mundo coberto de gelo."
+      ],
+      "mission": {
+        "easy": { "q": "Kepler-186 f foi o primeiro exoplaneta…", "options": ["Do tamanho da Terra na zona habitável", "Gasoso gigante", "Mais próximo do Sol", "Com anéis"], "answer": 0 },
+        "medium": { "q": "Kepler-186 f orbita uma…", "options": ["Estrela como o Sol", "Anã vermelha", "Pulsar", "Buraco negro"], "answer": 1 }
+      }
+    }
+  ]
+}

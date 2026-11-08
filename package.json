@@ -1,0 +1,22 @@
+{
+  "name": "solar-system-explorer",
+  "version": "1.0.0",
+  "description": "Immersive solar system exploration — a technically solid, visually realistic space simulation built for long-term use.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.160.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0",
+    "vitest": "3.2.7"
+  }
+}

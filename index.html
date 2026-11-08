@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="Exploração imersiva do sistema solar — simulação espacial com rigor visual e físico." />
+    <title>Explorador do Sistema Solar</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="ui-root"></div>
+      <div id="loading" class="loading">
+        <div class="loading__inner">
+          <div class="loading__title">Explorador do Sistema Solar</div>
+          <div class="loading__bar"><div class="loading__fill"></div></div>
+          <div class="loading__status">Preparando o espaço…</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

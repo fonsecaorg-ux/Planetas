@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "rockets": [
+    {
+      "id": "rocket-scout",
+      "name": "Falcão-X (Explorador)",
+      "model": "models/craft_racer.glb",
+      "type": "Leve / Sonda",
+      "heightM": 28,
+      "massKg": "2.8e5",
+      "thrustKN": 850,
+      "stages": 2,
+      "payloadKg": 1200,
+      "deltaVms": 9200,
+      "crew": [],
+      "color": "#e8eef7",
+      "accent": "#7dd3fc",
+      "curiosities": [
+        "Foguete leve para sondas e pequenos satélites.",
+        "Primeiro estágio reutilizável (pouso vertical).",
+        "Ideal para missões de reconhecimento rápido."
+      ],
+      "mission": "Sondas e reconhecimento"
+    },
+    {
+      "id": "rocket-crew",
+      "name": "Titã-VII (Tripulado)",
+      "model": "models/craft_speederA.glb",
+      "type": "Médio / Tripulado",
+      "heightM": 62,
+      "massKg": "1.2e6",
+      "thrustKN": 7600,
+      "stages": 3,
+      "payloadKg": 22000,
+      "deltaVms": 12500,
+      "crew": ["astro-lucas", "astro-mariana"],
+      "color": "#fbbf24",
+      "accent": "#f87171",
+      "curiosities": [
+        "Cápsula tripulada para 4 astronautas.",
+        "Sistema de escape de lançamento (LES) de alta confiabilidade.",
+        "Usado nas missões de exploração lunar e marciana."
+      ],
+      "mission": "Missões tripuladas (Lua/Marte)"
+    },
+    {
+      "id": "rocket-heavy",
+      "name": "Colosso-IX (Cargueiro)",
+      "model": "models/craft_cargoA.glb",
+      "type": "Pesado / Cargueiro",
+      "heightM": 98,
+      "massKg": "3.0e6",
+      "thrustKN": 35000,
+      "stages": 4,
+      "payloadKg": 140000,
+      "deltaVms": 11000,
+      "crew": ["astro-rafael"],
+      "color": "#a78bfa",
+      "accent": "#34d399",
+      "curiosities": [
+        "O mais potente da frota: leva estações e módulos inteiros.",
+        "Quatro estágios, incluindo estágio lunar dedicado.",
+        "Pode transportar um habitat completo em um único lançamento."
+      ],
+      "mission": "Carga pesada e habitats"
+    }
+  ]
+}

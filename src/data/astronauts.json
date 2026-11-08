@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "astronauts": [
+    {
+      "id": "astro-lucas",
+      "name": "Lucas",
+      "gender": "male",
+      "model": "models/male_a.glb",
+      "suitColor": "#e8eef7",
+      "helmetColor": "#7dd3fc",
+      "bio": "Comandante da missão, especialista em voos de longa duração.",
+      "role": "Comandante"
+    },
+    {
+      "id": "astro-rafael",
+      "name": "Rafael",
+      "gender": "male",
+      "model": "models/male_b.glb",
+      "suitColor": "#fbbf24",
+      "helmetColor": "#f87171",
+      "bio": "Engenheiro de voo e especialista em sistemas de suporte à vida.",
+      "role": "Engenheiro de voo"
+    },
+    {
+      "id": "astro-mariana",
+      "name": "Mariana",
+      "gender": "female",
+      "model": "models/female_a.glb",
+      "suitColor": "#a78bfa",
+      "helmetColor": "#34d399",
+      "bio": "Cientista da missão, especialista em geologia planetária.",
+      "role": "Cientista"
+    }
+  ]
+}
