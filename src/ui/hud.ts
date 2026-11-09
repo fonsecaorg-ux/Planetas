@@ -22,6 +22,7 @@ export interface HUDCallbacks {
   onProfile: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
+  onExpedition: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
   onSpeak: (text: string) => void;
   onReset: () => void;
@@ -67,6 +68,7 @@ export class HUD {
             <button class="btn" id="base-btn" style="font-size:0.75rem;padding:4px 8px;">🏢 Base</button>
             <button class="btn" id="leaderboard-btn" title="Ranking de exploradores" style="font-size:0.75rem;padding:4px 8px;">🏆</button>
             <button class="btn" id="badges-btn" title="Conquistas" style="font-size:0.75rem;padding:4px 8px;">🏅</button>
+            <button class="btn" id="expedition-btn" title="Expedições e Missão Semanal" style="font-size:0.75rem;padding:4px 8px;">🧭</button>
             <button class="btn" id="daily-btn" title="Desafio do dia" style="font-size:0.75rem;padding:4px 8px;">📅</button>
             <button class="btn" id="map-btn" title="Mapa de progresso" style="font-size:0.75rem;padding:4px 8px;">🗺️</button>
             <button class="btn" id="profile-btn" title="Perfil do explorador" style="font-size:0.75rem;padding:4px 8px;">👤</button>
@@ -74,6 +76,7 @@ export class HUD {
               <option value="">Explorador</option>
               ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
             </select>
+            <div class="panel" style="padding:4px 10px;font-size:0.75rem;cursor:pointer;" id="xp-pill" title="XP e Nível">⭐ Nv.1</div>
             <div class="panel" style="padding:4px 10px;font-size:0.75rem;" id="progress-pill">Progresso: 0/0</div>
             <div class="scale-toggle">
               <button data-scale="visual" class="${this.scaleMode === 'visual' ? 'active' : ''}">Visual</button>
@@ -134,9 +137,11 @@ export class HUD {
     this.root.querySelector('#base-btn')?.addEventListener('click', () => this.callbacks.onBase());
     this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => this.callbacks.onLeaderboard());
     this.root.querySelector('#badges-btn')?.addEventListener('click', () => this.callbacks.onBadges());
+    this.root.querySelector('#expedition-btn')?.addEventListener('click', () => this.callbacks.onExpedition());
     this.root.querySelector('#daily-btn')?.addEventListener('click', () => this.callbacks.onDailyChallenge());
     this.root.querySelector('#map-btn')?.addEventListener('click', () => this.callbacks.onProgressMap());
     this.root.querySelector('#profile-btn')?.addEventListener('click', () => this.callbacks.onProfile());
+    this.root.querySelector('#xp-pill')?.addEventListener('click', () => this.callbacks.onExpedition());
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
@@ -1100,5 +1105,156 @@ export class HUD {
       </span>
       <span style="font-size:0.7rem;opacity:0.75;">🎯 ${missions}</span>
     `;
+  }
+
+  updateXPPill(xp: number, level: number, levelName: string, _nextXP: number) {
+    const el = this.root.querySelector('#xp-pill') as HTMLElement | null;
+    if (!el) return;
+    el.innerHTML = `<span style="font-size:0.7rem;">⭐ Nv.${level}</span> <span style="font-size:0.65rem;opacity:0.7;">${xp} XP</span>`;
+    el.title = `Nível ${level}: ${levelName} · ${xp} XP`;
+  }
+
+  showHiddenObjectFound(name: string, fact: string, xp: number) {
+    document.getElementById('hidden-toast')?.remove();
+    if (!document.getElementById('hidden-toast-style')) {
+      const s = document.createElement('style');
+      s.id = 'hidden-toast-style';
+      s.textContent = '@keyframes fadeInHidden{from{opacity:0;transform:translateY(-20px) scale(0.9)}to{opacity:1;transform:translateY(0) scale(1)}}';
+      document.head.appendChild(s);
+    }
+    const toast = document.createElement('div');
+    toast.id = 'hidden-toast';
+    toast.style.cssText = 'position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(8,13,26,0.97);border:1px solid rgba(0,220,120,0.5);border-radius:14px;padding:14px 18px;max-width:340px;width:90%;animation:fadeInHidden 0.4s ease;box-shadow:0 0 24px rgba(0,220,120,0.3);';
+    toast.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:2rem;flex-shrink:0;">🔍</div>
+        <div>
+          <div style="font-size:0.65rem;color:#00dc78;font-weight:700;letter-spacing:0.5px;margin-bottom:3px;">OBJETO OCULTO DESCOBERTO! +${xp} XP</div>
+          <div style="font-size:0.9rem;font-weight:700;color:#e8eef7;margin-bottom:4px;">${name}</div>
+          <div style="font-size:0.75rem;opacity:0.75;line-height:1.4;">${fact}</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      if (!toast.isConnected) return;
+      toast.style.transition = 'opacity 0.5s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 600);
+    }, 5500);
+  }
+
+  showLevelUp(level: number, levelName: string) {
+    document.getElementById('levelup-toast')?.remove();
+    if (!document.getElementById('levelup-toast-style')) {
+      const s = document.createElement('style');
+      s.id = 'levelup-toast-style';
+      s.textContent = '@keyframes fadeInLU{from{opacity:0;transform:translate(-50%,-20px) scale(0.85)}to{opacity:1;transform:translate(-50%,0) scale(1)}}@keyframes starSpin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
+    }
+    const toast = document.createElement('div');
+    toast.id = 'levelup-toast';
+    toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9998;background:rgba(8,13,26,0.98);border:2px solid #fbbf24;border-radius:18px;padding:24px 32px;text-align:center;min-width:260px;animation:fadeInLU 0.5s ease;box-shadow:0 0 48px rgba(251,191,36,0.4);';
+    toast.innerHTML = `
+      <div style="font-size:2.5rem;margin-bottom:8px;animation:starSpin 2s linear infinite;display:inline-block;">⭐</div>
+      <div style="font-size:0.65rem;color:#fbbf24;font-weight:700;letter-spacing:1px;margin-bottom:4px;">SUBIU DE NÍVEL!</div>
+      <div style="font-size:1.6rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">Nível ${level}</div>
+      <div style="font-size:1rem;color:#e8eef7;">${levelName}</div>
+    `;
+    document.body.appendChild(toast);
+    toast.addEventListener('click', () => toast.remove());
+    setTimeout(() => {
+      if (!toast.isConnected) return;
+      toast.style.transition = 'opacity 0.6s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 700);
+    }, 4000);
+  }
+
+  showXPGain(amount: number) {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:52px;right:16px;z-index:998;color:#fbbf24;font-weight:700;font-size:0.9rem;pointer-events:none;animation:xpFly 1.4s ease forwards;`;
+    el.textContent = `+${amount} XP`;
+    if (!document.getElementById('xp-fly-style')) {
+      const s = document.createElement('style');
+      s.id = 'xp-fly-style';
+      s.textContent = '@keyframes xpFly{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-36px)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
+  showExpeditionPanel(
+    chapters: Array<{ id: string; title: string; description: string; badge: string; xpReward: number; steps: Array<{ id: string; type: string; label: string; count?: number }> }>,
+    completedSteps: Record<string, string[]>,
+    weeklyMissions: Array<{ q: string; options: string[]; answer: number }>,
+    weeklyState: { week: number; answered: boolean[]; correct: boolean[] },
+    onWeeklyAnswer: (idx: number, correct: boolean) => void,
+  ) {
+    const card = this.root.querySelector('#planet-card') as HTMLElement;
+    card.classList.add('visible');
+
+    const chapterRows = chapters.map((ch, ci) => {
+      const done = completedSteps[ch.id] ?? [];
+      const total = ch.steps.length;
+      const completed = done.length;
+      const pct = Math.round((completed / total) * 100);
+      const isComplete = completed >= total;
+      const steps = ch.steps.map((s) => {
+        const isDone = done.includes(s.id);
+        return `<div style="font-size:0.72rem;padding:3px 0;display:flex;align-items:center;gap:5px;opacity:${isDone ? '1' : '0.5'};">
+          <span style="color:${isDone ? '#22c55e' : '#888'}">${isDone ? '✓' : '○'}</span>${s.label}
+        </div>`;
+      }).join('');
+      return `
+        <div style="border:1px solid rgba(255,255,255,${isComplete ? '0.25' : '0.1'});border-radius:10px;padding:12px;margin-bottom:8px;background:rgba(${isComplete ? '34,197,94' : '255,255,255'},0.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-weight:700;font-size:0.85rem;">${isComplete ? '✅' : `${ci + 1}.`} ${ch.title}</span>
+            <span style="font-size:0.7rem;opacity:0.6;">${ch.xpReward} XP</span>
+          </div>
+          <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:8px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${isComplete ? '#22c55e' : '#6366f1'};border-radius:2px;transition:width 0.4s;"></div>
+          </div>
+          <div>${steps}</div>
+        </div>`;
+    }).join('');
+
+    const allAnswered = weeklyState.answered.every(Boolean);
+    const correctCount = weeklyState.correct.filter(Boolean).length;
+    const weeklyRows = weeklyMissions.map((q, i) => {
+      const answered = weeklyState.answered[i];
+      const correct = weeklyState.correct[i];
+      return `
+        <div class="weekly-q" data-idx="${i}" style="border:1px solid rgba(255,255,255,${answered ? '0.2' : '0.08'});border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:${answered ? 'default' : 'pointer'};background:rgba(${answered ? (correct ? '34,197,94' : '239,68,68') : '255,255,255'},0.04);">
+          <div style="font-size:0.8rem;font-weight:600;margin-bottom:${answered ? '0' : '6px'};">${i + 1}. ${q.q}</div>
+          ${answered
+            ? `<div style="font-size:0.72rem;color:${correct ? '#22c55e' : '#ef4444'};">${correct ? '✅ Correto' : `❌ Resposta: ${q.options[q.answer]}`}</div>`
+            : q.options.map((o, oi) => `<button class="wq-opt" data-qi="${i}" data-oi="${oi}" style="display:block;width:100%;text-align:left;padding:5px 8px;margin:2px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#e8eef7;font-size:0.75rem;cursor:pointer;">${o}</button>`).join('')
+          }
+        </div>`;
+    }).join('');
+
+    card.innerHTML = `
+      ${this.cardHeader('🧭 Expedições')}
+      <div style="font-size:0.75rem;color:#7dd3fc;margin-bottom:10px;">Complete expedições para ganhar XP e badges exclusivos!</div>
+      ${chapterRows}
+      <div style="border-top:1px solid rgba(255,255,255,0.1);margin:12px 0 8px;"></div>
+      <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;">📅 Missão Semanal ${allAnswered ? `✅ ${correctCount}/5` : `(${weeklyState.answered.filter(Boolean).length}/5)`}</div>
+      ${weeklyRows}
+    `;
+
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
+    card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
+
+    card.querySelectorAll('.wq-opt').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const qi = parseInt((btn as HTMLElement).dataset.qi!);
+        const oi = parseInt((btn as HTMLElement).dataset.oi!);
+        const correct = oi === weeklyMissions[qi].answer;
+        onWeeklyAnswer(qi, correct);
+        this.callbacks.onPlaySound(correct ? 'success' : 'error');
+      });
+    });
   }
 }

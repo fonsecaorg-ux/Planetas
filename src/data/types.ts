@@ -130,4 +130,41 @@ export interface ProgressState {
   activeAstronaut: string | null;
   journeyDone?: boolean;
   earnedBadges?: string[];
+  // Replayability systems
+  xp?: number;
+  level?: number;
+  discoveredObjects?: string[];
+  weeklyMissionWeek?: number;
+  weeklyMissionAnswered?: boolean[];
+  weeklyMissionCorrect?: boolean[];
+  chapterStepsCompleted?: Record<string, string[]>;
+}
+
+export interface HiddenObjectData {
+  id: string;
+  bodyId: string;
+  name: string;
+  fact: string;
+  xp: number;
+  offset: [number, number, number];
+  color: string;
+}
+
+export type ChapterStepType = 'visit' | 'answer' | 'discover' | 'weekly' | 'grande';
+
+export interface ChapterStep {
+  id: string;
+  type: ChapterStepType;
+  bodyId?: string;
+  count?: number;
+  label: string;
+}
+
+export interface ChapterData {
+  id: string;
+  title: string;
+  description: string;
+  badge: string;
+  xpReward: number;
+  steps: ChapterStep[];
 }

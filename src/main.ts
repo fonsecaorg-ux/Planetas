@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Engine } from '@/core/engine';
 import { loadSolarSystemData } from '@/data/loader';
-import { ProgressStore } from '@/utils/storage';
+import { ProgressStore, getLevelForXP } from '@/utils/storage';
 import { HubScene } from '@/scenes/hub';
 import { BaseScene } from '@/scenes/base';
 import { animateCamera, stepTransition, shiftTransition, detourAround, ScreenFade } from '@/scenes/transitions';
@@ -22,18 +22,67 @@ import { AudioEngine } from '@/core/audio';
 import { CloudSync } from '@/core/cloudSync';
 import astronautsData from '@/data/astronauts.json';
 import narrativeLines from '@/data/narrativeLines.json';
+import { HIDDEN_OBJECTS } from '@/data/hiddenObjects';
+import { CHAPTERS } from '@/data/chapters';
 
 // --- Sistema de Badges ---
 const BADGES = [
-  { id: 'first-mission',      icon: '🚀', name: 'Primeira Missão',       desc: 'Respondeu sua primeira pergunta de missão' },
-  { id: 'half-missions',      icon: '🌗', name: 'Meio Caminho',           desc: 'Completou missões em metade dos corpos' },
-  { id: 'all-missions',       icon: '🏆', name: 'Mestre do Sistema Solar', desc: 'Completou missões em todos os corpos' },
-  { id: 'moon-visited',       icon: '🌙', name: 'Lunar',                  desc: 'Visitou a Lua' },
-  { id: 'portal-unlocked',    icon: '🌌', name: 'Portal Interestelar',    desc: 'Desbloqueou o portal exoplanetário' },
-  { id: 'all-planets',        icon: '🪐', name: 'Grande Viajante',        desc: 'Visitou todos os planetas' },
-  { id: 'grande-missao',      icon: '⭐', name: 'Grande Missão',          desc: 'Completou a Grande Missão' },
-  { id: 'grande-missao-3stars', icon: '🌟', name: 'Estrela Tripla',      desc: 'Acertou 8+ na Grande Missão' },
+  { id: 'first-mission',        icon: '🚀', name: 'Primeira Missão',        desc: 'Respondeu sua primeira pergunta de missão' },
+  { id: 'half-missions',        icon: '🌗', name: 'Meio Caminho',            desc: 'Completou missões em metade dos corpos' },
+  { id: 'all-missions',         icon: '🏆', name: 'Mestre do Sistema Solar', desc: 'Completou missões em todos os corpos' },
+  { id: 'moon-visited',         icon: '🌙', name: 'Lunar',                   desc: 'Visitou a Lua' },
+  { id: 'portal-unlocked',      icon: '🌌', name: 'Portal Interestelar',     desc: 'Desbloqueou o portal exoplanetário' },
+  { id: 'all-planets',          icon: '🪐', name: 'Grande Viajante',         desc: 'Visitou todos os planetas' },
+  { id: 'grande-missao',        icon: '⭐', name: 'Grande Missão',           desc: 'Completou a Grande Missão' },
+  { id: 'grande-missao-3stars', icon: '🌟', name: 'Estrela Tripla',         desc: 'Acertou 8+ na Grande Missão' },
+  // Replayability badges
+  { id: 'first-discovery',      icon: '🔍', name: 'Olhos de Águia',         desc: 'Descobriu o primeiro objeto oculto' },
+  { id: 'all-discoveries',      icon: '🗝️', name: 'Caçador de Segredos',   desc: 'Descobriu todos os objetos ocultos do sistema solar' },
+  { id: 'chapter-1',            icon: '🌋', name: 'Explorador Interno',      desc: 'Concluiu a Expedição: Os Planetas Internos' },
+  { id: 'chapter-2',            icon: '🌪️', name: 'Domador de Gigantes',   desc: 'Concluiu a Expedição: Os Gigantes Gasosos' },
+  { id: 'chapter-3',            icon: '🧊', name: 'Desbravador Gelado',      desc: 'Concluiu a Expedição: As Fronteiras Geladas' },
+  { id: 'chapter-4',            icon: '🎖️', name: 'Explorador Completo',   desc: 'Concluiu todas as expedições do sistema solar' },
+  { id: 'weekly-first',         icon: '📅', name: 'Missão Semanal',          desc: 'Completou sua primeira Missão Semanal' },
+  { id: 'level-5',              icon: '⭐', name: 'Veterano',                desc: 'Alcançou o nível 5 de explorador' },
+  { id: 'level-max',            icon: '🌟', name: 'Almirante Galáctico',     desc: 'Alcançou o nível máximo de explorador' },
 ];
+
+// --- Sistema de Missão Semanal ---
+function getISOWeek(): number {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+function seededRandom(seed: number) {
+  let s = seed & 0x7fffffff || 1;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+}
+
+function buildAllQuestions(): MissionQuestion[] {
+  const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
+  const all: MissionQuestion[] = [];
+  for (const b of data.bodies) {
+    if (b.type === 'belt' || b.type === 'exoplanet') continue;
+    all.push(b.mission.easy, b.mission.medium);
+    const bp = pool[b.id];
+    if (bp?.easy)   all.push(...bp.easy);
+    if (bp?.medium) all.push(...bp.medium);
+  }
+  return all;
+}
+
+function getWeeklyMissions(week: number): MissionQuestion[] {
+  const all = buildAllQuestions();
+  const rng = seededRandom(week * 7919 + 42);
+  const shuffled = [...all].sort(() => rng() - 0.5);
+  return shuffled.slice(0, 5);
+}
 
 // --- Sistema de Desafio Diário ---
 const DAILY_KEY = 'solar-explorer:daily';
@@ -198,6 +247,50 @@ function checkAndAwardBadge(id: string) {
   }
 }
 
+function awardXP(amount: number) {
+  const result = store.addXP(amount);
+  hud.showXPGain(amount);
+  hud.updateXPPill(result.xp, result.level, result.levelName, result.nextXP);
+  if (result.leveledUp) {
+    hud.showLevelUp(result.level, result.levelName);
+    if (result.level >= 5) checkAndAwardBadge('level-5');
+    if (result.level >= 10) checkAndAwardBadge('level-max');
+  }
+}
+
+function checkChapterProgress() {
+  const state = store.get();
+  const visited = state.visited;
+  const missions = state.completedMissions;
+  const discovered = state.discoveredObjects ?? [];
+
+  for (const chapter of CHAPTERS) {
+    if (store.isChapterComplete(chapter.id, chapter.steps.length)) continue;
+    for (const step of chapter.steps) {
+      if (store.isChapterStepDone(chapter.id, step.id)) continue;
+      let done = false;
+      if (step.type === 'visit' && step.bodyId) {
+        done = visited.includes(step.bodyId);
+      } else if (step.type === 'answer' && step.bodyId) {
+        const rec = missions[step.bodyId];
+        done = !!(rec?.easy?.correct || rec?.medium?.correct);
+      } else if (step.type === 'discover' && step.count !== undefined) {
+        done = discovered.length >= step.count;
+      } else if (step.type === 'weekly') {
+        done = store.isWeeklyComplete(getISOWeek());
+      } else if (step.type === 'grande') {
+        done = store.hasBadge('grande-missao');
+      }
+      if (done) store.completeChapterStep(chapter.id, step.id);
+    }
+    // Check if chapter is now complete after updates
+    if (store.isChapterComplete(chapter.id, chapter.steps.length)) {
+      awardXP(chapter.xpReward);
+      checkAndAwardBadge(chapter.badge);
+    }
+  }
+}
+
 // HUD
 const hud = new HUD(uiRoot, {
   onSelectBody: (id) => selectBody(id),
@@ -207,6 +300,8 @@ const hud = new HUD(uiRoot, {
     store.recordMission(bodyId, diff, correct);
     const name = store.get().certificateName || 'Explorador';
     cloudSync.submitLeaderboard(name, getMissionScore());
+    // XP
+    if (correct) awardXP(diff === 'easy' ? 15 : 25);
     // Badge checks
     const missions = store.get().completedMissions;
     const answeredCount = Object.keys(missions).length;
@@ -214,6 +309,7 @@ const hud = new HUD(uiRoot, {
     const half = Math.ceil(mainBodies.length / 2);
     if (answeredCount >= half) checkAndAwardBadge('half-missions');
     if (answeredCount >= mainBodies.length) checkAndAwardBadge('all-missions');
+    checkChapterProgress();
   },
   onDifficulty: () => {},
   onCertificate: () => showCertificate(),
@@ -227,6 +323,8 @@ const hud = new HUD(uiRoot, {
     cloudSync.submitLeaderboard(name, getMissionScore());
     checkAndAwardBadge('grande-missao');
     if (score >= 8) checkAndAwardBadge('grande-missao-3stars');
+    awardXP(50);
+    checkChapterProgress();
   },
   onBadges: () => {
     hud.showBadges(BADGES, store.get().earnedBadges ?? []);
@@ -261,6 +359,7 @@ const hud = new HUD(uiRoot, {
     if (astro) store.setActiveAstronaut(astro.id);
     hud.showCertificate(name, store.get().certificateDate!);
   },
+  onExpedition: () => openExpeditionPanel(),
   onBase: () => { if (currentScene === 'base') goBackToHub(); else switchToBase(); },
   onPlaySound: (kind) => {
     if (kind === 'click') audio.click();
@@ -283,6 +382,10 @@ hud.setBodyCount(mainBodies.length);
 hud.setMainBodyIds(mainBodies.map((b) => b.id));
 cloudSync.onStatusChange = (s) => hud.setSyncStatus(s);
 hud.updateProgress(store.get());
+// Inicializar XP pill com estado salvo
+const _initXP = store.get().xp ?? 0;
+const _initLevel = getLevelForXP(_initXP);
+hud.updateXPPill(_initXP, _initLevel.level, _initLevel.name, _initLevel.nextXP);
 // Restaurar portal se já completado em sessão anterior
 if (store.get().visited.filter((id) => mainBodies.some((b) => b.id === id)).length >= mainBodies.length) {
   hub.exoPortal?.unlock();
@@ -356,6 +459,8 @@ function rebuildSelectable() {
   for (const a of hub.astronauts) selectable.push(a.hitbox);
   // Portal interestelar (somente após desbloqueio)
   if (hub.exoPortal?.unlocked) selectable.push(hub.exoPortal.hitbox);
+  // Objetos ocultos
+  for (const hb of hub.hiddenObjectHitboxes) selectable.push(hb);
 }
 rebuildSelectable();
 
@@ -587,6 +692,10 @@ function selectBody(id: string) {
     hub.group.updateMatrixWorld(true);
     const moonPos = new THREE.Vector3();
     hub.moonBase!.moonGroup.getWorldPosition(moonPos);
+    const wasNew = !store.get().visited.includes('moon');
+    store.markVisited('moon');
+    if (wasNew) awardXP(10);
+    checkChapterProgress();
     audio.transition();
     viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
       showMoonPanel();
@@ -638,11 +747,31 @@ function selectBody(id: string) {
     return;
   }
 
+  if (id.startsWith('hidden:')) {
+    const objId = id.slice('hidden:'.length);
+    const obj = HIDDEN_OBJECTS.find((o) => o.id === objId);
+    if (!obj) return;
+    const isNew = store.discoverObject(objId);
+    if (isNew) {
+      awardXP(obj.xp);
+      hud.showHiddenObjectFound(obj.name, obj.fact, obj.xp);
+      checkAndAwardBadge('first-discovery');
+      if ((store.get().discoveredObjects ?? []).length >= HIDDEN_OBJECTS.length) {
+        checkAndAwardBadge('all-discoveries');
+      }
+      checkChapterProgress();
+    }
+    return;
+  }
+
   const bodyData = data.bodies.find((b) => b.id === id);
   if (!bodyData || bodyData.type === 'belt' || !hub.getBody(id)) return;
 
+  const wasNew = !store.get().visited.includes(id);
   store.markVisited(id);
+  if (wasNew) awardXP(10);
   hud.updateProgress(store.get());
+  checkChapterProgress();
   // Verificar se todos os planetas foram visitados → desbloquear portal
   if (!hub.exoPortal?.unlocked) {
     const visited = store.get().visited.filter((vid) => mainBodies.some((b) => b.id === vid));
@@ -696,6 +825,36 @@ function showMoonPanel() {
 /** Fecha o painel de informações sem mover a câmera. */
 function closeCard() {
   hud.hidePlanet();
+}
+
+function openExpeditionPanel() {
+  const week = getISOWeek();
+  store.initWeeklyMission(week);
+  const weeklyMissions = getWeeklyMissions(week);
+  const refreshPanel = () => {
+    const st = store.get();
+    hud.showExpeditionPanel(
+      CHAPTERS,
+      st.chapterStepsCompleted ?? {},
+      weeklyMissions,
+      {
+        week,
+        answered: st.weeklyMissionAnswered ?? Array(5).fill(false),
+        correct: st.weeklyMissionCorrect ?? Array(5).fill(false),
+      },
+      (idx, correct) => {
+        store.recordWeeklyAnswer(week, idx, correct);
+        if (correct) awardXP(10);
+        if (store.isWeeklyComplete(week)) {
+          awardXP(30);
+          checkAndAwardBadge('weekly-first');
+          checkChapterProgress();
+        }
+        refreshPanel();
+      },
+    );
+  };
+  refreshPanel();
 }
 
 /** HTML do cabeçalho de card com ✕ (fecha) e "← Voltar ao mapa" (vai ao hub). */

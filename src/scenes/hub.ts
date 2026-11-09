@@ -14,6 +14,7 @@ import { keplerianOrbitPath } from '@/utils/orbits';
 import { MoonBase } from '@/core/moonBase';
 import { SatelliteMoon } from '@/core/satelliteMoon';
 import { ExoPortal } from '@/core/exoPortal';
+import { HIDDEN_OBJECTS } from '@/data/hiddenObjects';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -61,6 +62,9 @@ export class HubScene {
   exoPortal: ExoPortal | null = null;
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
+  readonly hiddenObjectHitboxes: THREE.Mesh[] = [];
+  private hiddenObjectMaterials: Array<{ mesh: THREE.MeshStandardMaterial; glow: THREE.SpriteMaterial }> = [];
+  private hiddenT = 0;
 
   constructor(opts: HubSceneOptions) {
     this.group = new THREE.Group();
@@ -151,6 +155,73 @@ export class HubScene {
     this.trajectories.push(traj);
     this.trajectoryPoints.push(voyagerPoints);
     this.group.add(traj.group);
+
+    this._buildHiddenObjects();
+  }
+
+  private _buildHiddenObjects() {
+    for (const obj of HIDDEN_OBJECTS) {
+      const body = this.bodies.get(obj.bodyId);
+      if (!body) continue;
+
+      const r = body.radius;
+      const icoR = Math.min(1.2, Math.max(0.15, r * 0.08));
+      const color = new THREE.Color(obj.color);
+
+      // Icosahedron emissivo
+      const geo = new THREE.IcosahedronGeometry(icoR, 1);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 2.5,
+        roughness: 0.4,
+        metalness: 0.3,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      // Glow sprite
+      const glowCanvas = document.createElement('canvas');
+      glowCanvas.width = 64; glowCanvas.height = 64;
+      const gc = glowCanvas.getContext('2d')!;
+      const grad = gc.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, `${obj.color}ff`);
+      grad.addColorStop(0.4, `${obj.color}88`);
+      grad.addColorStop(1, `${obj.color}00`);
+      gc.fillStyle = grad;
+      gc.fillRect(0, 0, 64, 64);
+      const glowTex = new THREE.CanvasTexture(glowCanvas);
+      const glowMat = new THREE.SpriteMaterial({
+        map: glowTex,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+        opacity: 0.7,
+      });
+      const glow = new THREE.Sprite(glowMat);
+      const gs = icoR * 5;
+      glow.scale.set(gs, gs, 1);
+      glow.renderOrder = 10;
+      mesh.add(glow);
+
+      // Hitbox invisível (maior para facilitar clique)
+      const hbR = Math.min(2.5, Math.max(0.4, r * 0.15));
+      const hbGeo = new THREE.SphereGeometry(hbR, 8, 8);
+      const hbMat = new THREE.MeshBasicMaterial({ visible: false });
+      const hitbox = new THREE.Mesh(hbGeo, hbMat);
+      hitbox.add(mesh);
+      (hitbox as any).userData = { bodyId: `hidden:${obj.id}` };
+
+      // Posicionar no planeta (em unidades de raio)
+      const [ox, oy, oz] = obj.offset;
+      hitbox.position.set(ox * r, oy * r, oz * r);
+
+      body.group.add(hitbox);
+      this.hiddenObjectHitboxes.push(hitbox);
+      this.hiddenObjectMaterials.push({ mesh: mat, glow: glowMat });
+    }
   }
 
   private criarOrbitas(bodies: BodyData[], scaleMode: ScaleMode) {
@@ -300,6 +371,13 @@ export class HubScene {
     for (const a of this.astronauts) if (a.group.visible) a.update(dt, timeSpeed);
     if (this.station) this.station.update(dt, timeSpeed);
     for (const r of this.rockets) r.update(dt, timeSpeed);
+    // Pulso dos objetos ocultos
+    this.hiddenT += dt;
+    for (const { mesh, glow } of this.hiddenObjectMaterials) {
+      const p = 0.6 + Math.sin(this.hiddenT * 2.2) * 0.3;
+      mesh.emissiveIntensity = 2.0 + Math.sin(this.hiddenT * 2.2) * 1.0;
+      glow.opacity = p;
+    }
   }
 
   setScaleMode(mode: ScaleMode, data: SolarSystemData) {
