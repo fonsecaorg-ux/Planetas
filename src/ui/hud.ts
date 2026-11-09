@@ -1135,39 +1135,101 @@ export class HUD {
     if (menu) menu.style.display = 'none';
   }
 
-  showDiary(entries: Array<{ bodyId: string; name: string; type: string; visitedAt: string; curiosity: string }>) {
+  showDiary(
+    entries: Array<{ bodyId: string; name: string; type: string; visitedAt: string; curiosity: string }>,
+    discoveredIds: string[] = [],
+    allDiscoverables: Array<{ id: string; bodyId: string; name: string; color: string }> = [],
+    stationModules: string[] = [],
+  ) {
     const card = this.root.querySelector('#planet-card') as HTMLElement;
     card.classList.add('visible');
     const typeMap: Record<string, string> = { star: '☀️ Estrela', planet: '🪐 Planeta', dwarf: '🪨 Anão', moon: '🌙 Lua', belt: '☁️ Cinturão' };
-    const bodyColor: Record<string, string> = { star: '#ffd700', planet: '#7dd3fc', dwarf: '#a78bfa', moon: '#d1d5db', belt: '#9ca3af' };
+    const bodyColor: Record<string, string> = { star: '#ffd700', planet: '#7dd3fc', dwarf: '#a78bfa', moon: '#d1d5db', belt: '#9ca3af', exoplanet: '#c084fc' };
 
-    const rows = entries.length === 0
+    // Station status widget
+    const stationTitles: Record<string, string> = {
+      'lab': '🔬 Laboratório',
+      'observatory': '🔭 Observatório',
+      'garden': '🌱 Jardim Orbital',
+      'hangar': '🚀 Hangar Ampliado',
+    };
+    const stationWidget = stationModules.length === 0
+      ? `<div style="font-size:0.72rem;opacity:0.5;padding:6px 0;">Nenhum módulo desbloqueado ainda. Continue explorando!</div>`
+      : stationModules.map((m) => `<span style="font-size:0.7rem;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:3px 8px;margin:2px 3px 2px 0;display:inline-block;">${stationTitles[m] ?? m}</span>`).join('');
+
+    // Planet tab rows — with color accent and mission badge
+    const planetRows = entries.length === 0
       ? `<div style="text-align:center;opacity:0.5;padding:32px 0;font-size:0.85rem;">Você ainda não visitou nenhum planeta.<br><br>Clique em qualquer planeta para explorar!</div>`
       : entries.map((e) => {
         const date = new Date(e.visitedAt).toLocaleDateString('pt-BR');
         const color = bodyColor[e.type] ?? '#7dd3fc';
         const typeLabel = typeMap[e.type] ?? e.type;
+        const rec = this.progress.completedMissions[e.bodyId];
+        const easyDone = rec?.easy?.correct;
+        const medDone  = rec?.medium?.correct;
+        const missionBadge = (easyDone || medDone)
+          ? `<span style="font-size:0.6rem;color:#22c55e;border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:1px 6px;">🎯 ${easyDone && medDone ? '2/2' : '1/2'}</span>`
+          : '';
+        const bodyHiddenCount = allDiscoverables.filter((d) => d.bodyId === e.bodyId && !discoveredIds.includes(d.id)).length;
+        const hiddenHint = bodyHiddenCount > 0
+          ? `<span style="font-size:0.6rem;color:#fbbf24;opacity:0.7;" title="Objetos ocultos não descobertos">🔍 ${bodyHiddenCount}</span>`
+          : '';
         return `
-          <div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 13px;margin-bottom:8px;background:rgba(255,255,255,0.03);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-              <span style="font-weight:700;font-size:0.9rem;">${e.name}</span>
-              <span style="font-size:0.65rem;background:${color}22;color:${color};border:1px solid ${color}44;border-radius:12px;padding:1px 7px;">${typeLabel}</span>
+          <div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;margin-bottom:8px;">
+            <div style="height:3px;background:${color};"></div>
+            <div style="padding:9px 12px;">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap;">
+                <span style="font-weight:700;font-size:0.88rem;flex:1;">${e.name}</span>
+                <span style="font-size:0.6rem;background:${color}22;color:${color};border:1px solid ${color}44;border-radius:10px;padding:1px 6px;">${typeLabel}</span>
+                ${missionBadge}
+                ${hiddenHint}
+              </div>
+              <p style="font-size:0.74rem;opacity:0.75;margin:0 0 6px;line-height:1.4;">• ${e.curiosity}</p>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.62rem;opacity:0.4;">Visitado em ${date}</span>
+                <button class="btn diary-travel-btn" data-id="${e.bodyId}" style="font-size:0.65rem;padding:2px 7px;">🚀 Viajar</button>
+              </div>
             </div>
-            <p style="font-size:0.76rem;opacity:0.75;margin:0 0 7px;line-height:1.4;">• ${e.curiosity}</p>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:0.65rem;opacity:0.45;">Visitado em ${date}</span>
-              <button class="btn diary-travel-btn" data-id="${e.bodyId}" style="font-size:0.68rem;padding:3px 8px;">🚀 Viajar</button>
+          </div>`;
+      }).join('');
+
+    // Discoveries tab
+    const discRows = allDiscoverables.length === 0
+      ? `<div style="text-align:center;opacity:0.5;padding:32px 0;font-size:0.85rem;">Nenhum objeto para descobrir ainda.</div>`
+      : allDiscoverables.map((d) => {
+        const found = discoveredIds.includes(d.id);
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:5px;
+            background:rgba(${found ? '0,220,120' : '255,255,255'},0.04);
+            border:1px solid rgba(${found ? '0,220,120' : '255,255,255'},${found ? '0.25' : '0.07'});">
+            <div style="width:12px;height:12px;border-radius:50%;background:${d.color};flex-shrink:0;${found ? '' : 'opacity:0.3;'}"></div>
+            <div style="flex:1;">
+              <div style="font-size:0.82rem;font-weight:${found ? '700' : '400'};opacity:${found ? '1' : '0.4'};">${found ? d.name : '???'}</div>
+              <div style="font-size:0.65rem;opacity:0.5;">${d.bodyId.charAt(0).toUpperCase() + d.bodyId.slice(1)}</div>
             </div>
+            ${found ? '<div style="color:#00dc78;font-size:0.8rem;">✓</div>' : '<div style="font-size:0.75rem;color:#fbbf24;opacity:0.6;">🔍</div>'}
           </div>`;
       }).join('');
 
     card.innerHTML = `
       ${this.cardHeader('📖 Diário de Exploração')}
-      <div style="font-size:0.72rem;color:#7dd3fc;margin-bottom:10px;">
-        ${entries.length} ${entries.length === 1 ? 'local visitado' : 'locais visitados'}
+
+      <!-- Estação -->
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+        <div style="font-size:0.7rem;color:#a5b4fc;font-weight:700;margin-bottom:4px;">🛰️ Estação — Módulos ativos (${stationModules.length})</div>
+        <div>${stationWidget}</div>
       </div>
-      <div style="max-height:65vh;overflow-y:auto;padding-right:4px;">${rows}</div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:4px;margin-bottom:10px;">
+        <button id="tab-planets" style="flex:1;padding:5px;border-radius:7px;border:1px solid rgba(125,211,252,0.4);background:rgba(125,211,252,0.12);color:#7dd3fc;font-size:0.75rem;cursor:pointer;font-weight:700;">🪐 Planetas (${entries.length})</button>
+        <button id="tab-disc" style="flex:1;padding:5px;border-radius:7px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.5);font-size:0.75rem;cursor:pointer;">🔍 Descobertas (${discoveredIds.length}/${allDiscoverables.length})</button>
+      </div>
+
+      <div id="diary-planets" style="max-height:55vh;overflow-y:auto;padding-right:4px;">${planetRows}</div>
+      <div id="diary-disc"    style="display:none;max-height:55vh;overflow-y:auto;padding-right:4px;">${discRows}</div>
     `;
+
     card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
     card.querySelectorAll('.diary-travel-btn').forEach((btn) => {
@@ -1176,6 +1238,20 @@ export class HUD {
         this.callbacks.onSelectBody(id);
       });
     });
+
+    const tabPlanets = card.querySelector('#tab-planets') as HTMLElement;
+    const tabDisc    = card.querySelector('#tab-disc')    as HTMLElement;
+    const panelPlanets = card.querySelector('#diary-planets') as HTMLElement;
+    const panelDisc    = card.querySelector('#diary-disc')    as HTMLElement;
+    const activateTab = (tab: 'planets' | 'disc') => {
+      const isPlanets = tab === 'planets';
+      tabPlanets.style.cssText = `flex:1;padding:5px;border-radius:7px;cursor:pointer;font-size:0.75rem;border:1px solid ${isPlanets ? 'rgba(125,211,252,0.4)' : 'rgba(255,255,255,0.1)'};background:${isPlanets ? 'rgba(125,211,252,0.12)' : 'rgba(255,255,255,0.03)'};color:${isPlanets ? '#7dd3fc' : 'rgba(255,255,255,0.5)'};font-weight:${isPlanets ? '700' : '400'};`;
+      tabDisc.style.cssText    = `flex:1;padding:5px;border-radius:7px;cursor:pointer;font-size:0.75rem;border:1px solid ${!isPlanets ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)'};background:${!isPlanets ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)'};color:${!isPlanets ? '#fbbf24' : 'rgba(255,255,255,0.5)'};font-weight:${!isPlanets ? '700' : '400'};`;
+      panelPlanets.style.display = isPlanets ? 'block' : 'none';
+      panelDisc.style.display    = isPlanets ? 'none'  : 'block';
+    };
+    tabPlanets.addEventListener('click', () => activateTab('planets'));
+    tabDisc.addEventListener('click',    () => activateTab('disc'));
   }
 
   updateProgressPill() {

@@ -47,6 +47,35 @@ const BADGES = [
   { id: 'level-max',            icon: '🌟', name: 'Almirante Galáctico',     desc: 'Alcançou o nível máximo de explorador' },
 ];
 
+// --- Evolução da Estação ---
+const STATION_MODULES: Array<{
+  id: string;
+  condition: (state: ReturnType<typeof store.get>) => boolean;
+}> = [
+  { id: 'lab',         condition: (s) => (s.visited?.length ?? 0) >= 3 },
+  { id: 'observatory', condition: (s) => (s.discoveredObjects?.length ?? 0) >= 3 },
+  { id: 'garden',      condition: (s) => (s.chapterStepsCompleted?.['chapter-1']?.length ?? 0) >= 3 },
+  { id: 'hangar',      condition: (s) => (s.level ?? 1) >= 5 },
+];
+
+function checkStationEvolution() {
+  const state = store.get();
+  for (const mod of STATION_MODULES) {
+    if (!state.stationModules?.includes(mod.id) && mod.condition(state)) {
+      const isNew = store.unlockStationModule(mod.id);
+      if (isNew) {
+        const labels: Record<string, string> = {
+          lab: '🔬 Laboratório desbloqueado!',
+          observatory: '🔭 Observatório desbloqueado!',
+          garden: '🌱 Jardim Orbital desbloqueado!',
+          hangar: '🚀 Hangar Ampliado desbloqueado!',
+        };
+        hud.showBadgeToast('🛰️', 'Estação Evoluiu!', labels[mod.id] ?? mod.id);
+      }
+    }
+  }
+}
+
 // --- Sistema de Missão Semanal ---
 function getISOWeek(): number {
   const now = new Date();
@@ -320,6 +349,7 @@ const hud = new HUD(uiRoot, {
     if (answeredCount >= half) checkAndAwardBadge('half-missions');
     if (answeredCount >= mainBodies.length) checkAndAwardBadge('all-missions');
     checkChapterProgress();
+    checkStationEvolution();
   },
   onDifficulty: () => {},
   onCertificate: () => showCertificate(),
@@ -369,7 +399,12 @@ const hud = new HUD(uiRoot, {
     if (astro) store.setActiveAstronaut(astro.id);
     hud.showCertificate(name, store.get().certificateDate!);
   },
-  onDiary: () => hud.showDiary(store.getDiaryEntries()),
+  onDiary: () => hud.showDiary(
+    store.getDiaryEntries(),
+    store.get().discoveredObjects ?? [],
+    HIDDEN_OBJECTS.map((o) => ({ id: o.id, bodyId: o.bodyId, name: o.name, color: o.color })),
+    store.getStationModules(),
+  ),
   onExpedition: () => openExpeditionPanel(),
   onBase: () => { if (currentScene === 'base') goBackToHub(); else switchToBase(); },
   onPlaySound: (kind) => {
@@ -710,6 +745,7 @@ function selectBody(id: string) {
       store.addDiaryEntry({ bodyId: 'moon', name: 'Lua', type: 'moon', visitedAt: new Date().toISOString(), curiosity: 'A Lua é o único astro além da Terra onde humanos já pisaram — durante as missões Apollo entre 1969 e 1972.' });
     }
     checkChapterProgress();
+    checkStationEvolution();
     audio.transition();
     viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
       showMoonPanel();
@@ -774,6 +810,7 @@ function selectBody(id: string) {
         checkAndAwardBadge('all-discoveries');
       }
       checkChapterProgress();
+      checkStationEvolution();
     }
     return;
   }
@@ -786,6 +823,7 @@ function selectBody(id: string) {
   if (wasNew) awardXP(10);
   hud.updateProgress(store.get());
   checkChapterProgress();
+  checkStationEvolution();
   // Verificar se todos os planetas foram visitados → desbloquear portal
   if (!hub.exoPortal?.unlocked) {
     const visited = store.get().visited.filter((vid) => mainBodies.some((b) => b.id === vid));

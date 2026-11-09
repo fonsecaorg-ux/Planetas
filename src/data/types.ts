@@ -131,6 +131,7 @@ export interface ProgressState {
   journeyDone?: boolean;
   earnedBadges?: string[];
   diaryEntries?: DiaryEntry[];
+  stationModules?: string[];
   // Replayability systems
   xp?: number;
   level?: number;

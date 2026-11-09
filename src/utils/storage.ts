@@ -153,6 +153,18 @@ export class ProgressStore {
     return this.state.diaryEntries ?? [];
   }
 
+  unlockStationModule(id: string): boolean {
+    const mods = this.state.stationModules ?? [];
+    if (mods.includes(id)) return false;
+    this.state.stationModules = [...mods, id];
+    this.save();
+    return true;
+  }
+
+  getStationModules(): string[] {
+    return this.state.stationModules ?? [];
+  }
+
   /** Adiciona XP e recalcula nível. Retorna resultado com flag de level-up. */
   addXP(amount: number): { xp: number; level: number; levelName: string; nextXP: number; leveledUp: boolean } {
     const before = this.state.xp ?? 0;
