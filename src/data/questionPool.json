@@ -104,5 +104,35 @@
     "medium": [
       { "q": "O que a sonda Dawn descobriu em Ceres?", "options": ["Vulcões de lava", "Manchas brilhantes de sal e carbonato", "Oceanos de água líquida", "Vida microbiana"], "answer": 1 }
     ]
+  },
+  "proxima-b": {
+    "easy": [
+      { "q": "Proxima Centauri b orbita qual tipo de estrela?", "options": ["Anã amarela como o Sol", "Anã vermelha", "Gigante azul", "Pulsar"], "answer": 1 },
+      { "q": "Proxima Centauri b é o exoplaneta mais…", "options": ["Massivo", "Quente", "Próximo da Terra", "Distante"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Por que Proxima Centauri b pode ser hostil à vida?", "options": ["É muito fria", "Recebe excesso de radiação UV/X", "É muito grande", "Não tem carbono"], "answer": 1 },
+      { "q": "Em qual constelação fica Proxima Centauri?", "options": ["Órion", "Centauro", "Escorpião", "Crux"], "answer": 1 }
+    ]
+  },
+  "trappist-1e": {
+    "easy": [
+      { "q": "Quantos planetas tem o sistema TRAPPIST-1?", "options": ["3", "5", "7", "10"], "answer": 2 },
+      { "q": "TRAPPIST-1 e tem tamanho semelhante ao de…", "options": ["Júpiter", "Marte", "Terra", "Netuno"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Qual telescópio estuda TRAPPIST-1 e com prioridade?", "options": ["Hubble", "James Webb (JWST)", "Chandra", "Spitzer"], "answer": 1 },
+      { "q": "TRAPPIST-1 e está a cerca de quantos anos-luz da Terra?", "options": ["4", "12", "40", "400"], "answer": 2 }
+    ]
+  },
+  "kepler-186f": {
+    "easy": [
+      { "q": "Kepler-186 f orbita na…", "options": ["Zona muito quente", "Zona habitável", "Zona fria extrema", "Fora do sistema"], "answer": 1 },
+      { "q": "Kepler-186 f foi descoberto pelo telescópio…", "options": ["Hubble", "James Webb", "Kepler", "Spitzer"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Kepler-186 f está a aproximadamente quantos anos-luz?", "options": ["40", "150", "550", "2000"], "answer": 2 },
+      { "q": "O que torna Kepler-186 f interessante para astrobiologia?", "options": ["Tem água detectada", "Orbita na zona habitável de uma anã vermelha", "Tem oxigênio na atmosfera", "Tem lua grande"], "answer": 1 }
+    ]
   }
 }

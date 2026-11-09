@@ -15,6 +15,8 @@ export interface HUDCallbacks {
   onGrandeMissao: () => void;
   onGrandeMissaoComplete: (score: number, total: number) => void;
   onLeaderboard: () => void;
+  onBadges: () => void;
+  onDailyChallenge: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
@@ -61,6 +63,8 @@ export class HUD {
           <div class="interactive" style="display:flex;gap:8px;align-items:center;">
             <button class="btn" id="base-btn" style="font-size:0.75rem;padding:4px 8px;">🏢 Base</button>
             <button class="btn" id="leaderboard-btn" title="Ranking de exploradores" style="font-size:0.75rem;padding:4px 8px;">🏆</button>
+            <button class="btn" id="badges-btn" title="Conquistas" style="font-size:0.75rem;padding:4px 8px;">🏅</button>
+            <button class="btn" id="daily-btn" title="Desafio do dia" style="font-size:0.75rem;padding:4px 8px;">📅</button>
             <select id="astro-select" style="padding:4px 8px;border-radius:6px;background:var(--panel);color:var(--fg);border:1px solid var(--panel-border);font-size:0.75rem;">
               <option value="">Explorador</option>
               ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
@@ -124,6 +128,8 @@ export class HUD {
     });
     this.root.querySelector('#base-btn')?.addEventListener('click', () => this.callbacks.onBase());
     this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => this.callbacks.onLeaderboard());
+    this.root.querySelector('#badges-btn')?.addEventListener('click', () => this.callbacks.onBadges());
+    this.root.querySelector('#daily-btn')?.addEventListener('click', () => this.callbacks.onDailyChallenge());
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
@@ -714,6 +720,137 @@ export class HUD {
     dot.textContent = s.text;
     dot.style.color = s.color;
     dot.style.opacity = s.opacity;
+  }
+
+  setDailyStreak(streak: number) {
+    const btn = this.root.querySelector('#daily-btn') as HTMLElement | null;
+    if (!btn) return;
+    btn.textContent = streak > 0 ? `📅${streak}🔥` : '📅';
+    btn.title = streak > 0 ? `Desafio do dia — ${streak} dias seguidos!` : 'Desafio do dia';
+  }
+
+  showBadgeToast(icon: string, name: string, desc: string) {
+    document.getElementById('badge-toast')?.remove();
+    if (!document.getElementById('badge-toast-style')) {
+      const s = document.createElement('style');
+      s.id = 'badge-toast-style';
+      s.textContent = '@keyframes fadeInBadge{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}';
+      document.head.appendChild(s);
+    }
+    const toast = document.createElement('div');
+    toast.id = 'badge-toast';
+    toast.style.cssText = 'position:fixed;bottom:72px;right:16px;z-index:999;display:flex;align-items:center;gap:10px;background:rgba(8,13,26,0.95);border:1px solid rgba(251,191,36,0.4);border-radius:12px;padding:10px 14px;max-width:280px;animation:fadeInBadge 0.4s ease;';
+    toast.innerHTML = `
+      <div style="font-size:1.6rem;flex-shrink:0;">${icon}</div>
+      <div>
+        <div style="font-size:0.65rem;color:#fbbf24;font-weight:700;letter-spacing:0.5px;margin-bottom:2px;">CONQUISTA DESBLOQUEADA!</div>
+        <div style="font-size:0.85rem;font-weight:700;">${name}</div>
+        <div style="font-size:0.72rem;opacity:0.7;">${desc}</div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      if (!toast.isConnected) return;
+      toast.style.transition = 'opacity 0.5s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 600);
+    }, 4500);
+  }
+
+  showBadges(allBadges: Array<{ id: string; icon: string; name: string; desc: string }>, earnedIds: string[]) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.93);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    const rows = allBadges.map((b) => {
+      const earned = earnedIds.includes(b.id);
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;
+          background:${earned ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${earned ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.07)'};
+          margin-bottom:6px;opacity:${earned ? '1' : '0.35'};">
+          <div style="font-size:1.5rem;width:34px;text-align:center;flex-shrink:0;">${b.icon}</div>
+          <div style="flex:1;">
+            <div style="font-size:0.88rem;font-weight:700;${earned ? 'color:#fbbf24;' : ''}">${b.name}</div>
+            <div style="font-size:0.72rem;opacity:0.7;">${b.desc}</div>
+          </div>
+          ${earned ? '<div style="color:#22c55e;font-size:0.85rem;flex-shrink:0;">✓</div>' : ''}
+        </div>`;
+    }).join('');
+    overlay.innerHTML = `
+      <div style="max-width:460px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="margin:0;color:#fbbf24;">🏅 Conquistas</h2>
+          <span style="font-size:0.8rem;opacity:0.5;">${earnedIds.length}/${allBadges.length} desbloqueadas</span>
+          <button id="bdg-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕ Fechar</button>
+        </div>
+        <div>${rows}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#bdg-close')?.addEventListener('click', () => overlay.remove());
+  }
+
+  showDailyChallenge(
+    question: MissionQuestion,
+    state: { answered: boolean; correct: boolean; streak: number },
+    onAnswer: (correct: boolean) => void,
+  ) {
+    document.getElementById('daily-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'daily-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.96);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    document.body.appendChild(overlay);
+
+    const renderResult = (s: { correct: boolean; streak: number }) => {
+      const nextHours = 24 - new Date().getHours();
+      overlay.innerHTML = `
+        <div style="max-width:400px;width:100%;color:#e8eef7;text-align:center;">
+          <h2 style="margin:0 0 16px;color:#fbbf24;">📅 Desafio do Dia</h2>
+          <div style="font-size:3rem;margin:8px 0;">${s.correct ? '✅' : '❌'}</div>
+          <div style="font-size:1rem;margin-bottom:8px;">${s.correct ? 'Excelente! Resposta correta!' : 'Quase! Tente amanhã.'}</div>
+          ${s.streak > 0 ? `<div style="font-size:1.3rem;color:#fbbf24;margin:10px 0;">${s.streak} ${s.streak === 1 ? 'dia' : 'dias'} seguidos 🔥</div>` : ''}
+          <div style="font-size:0.78rem;opacity:0.4;margin-top:10px;">Próximo desafio em ~${nextHours}h</div>
+          <button id="dc-close-r" style="margin-top:18px;padding:8px 24px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;">Fechar</button>
+        </div>
+      `;
+      overlay.querySelector('#dc-close-r')?.addEventListener('click', () => overlay.remove());
+    };
+
+    if (state.answered) { renderResult(state); return; }
+
+    overlay.innerHTML = `
+      <div style="max-width:480px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2 style="margin:0;color:#fbbf24;">📅 Desafio do Dia</h2>
+          ${state.streak > 0 ? `<div style="font-size:0.9rem;color:#fbbf24;">${state.streak} 🔥</div>` : ''}
+          <button id="dc-close0" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕</button>
+        </div>
+        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:1rem;line-height:1.5;">${question.q}</div>
+        <div id="dc-opts" style="display:flex;flex-direction:column;gap:8px;">
+          ${question.options.map((o, i) => `<button class="dc-opt" data-idx="${i}" style="padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#e8eef7;font-size:0.9rem;cursor:pointer;text-align:left;">${o}</button>`).join('')}
+        </div>
+        <div id="dc-fb" style="min-height:24px;margin-top:10px;font-size:0.85rem;text-align:center;"></div>
+      </div>
+    `;
+    overlay.querySelector('#dc-close0')?.addEventListener('click', () => overlay.remove());
+    overlay.querySelectorAll('.dc-opt').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt((btn as HTMLElement).dataset.idx!);
+        const correct = idx === question.answer;
+        overlay.querySelectorAll('.dc-opt').forEach((b, i) => {
+          const el = b as HTMLElement;
+          el.style.pointerEvents = 'none';
+          el.style.background = i === question.answer ? 'rgba(34,197,94,0.3)' : (i === idx && !correct ? 'rgba(239,68,68,0.3)' : '');
+          el.style.borderColor = i === question.answer ? '#22c55e' : (i === idx && !correct ? '#ef4444' : 'rgba(255,255,255,0.15)');
+        });
+        const fb = overlay.querySelector('#dc-fb') as HTMLElement;
+        fb.textContent = correct ? '✅ Correto!' : `❌ Resposta: "${question.options[question.answer]}"`;
+        fb.style.color = correct ? '#22c55e' : '#ef4444';
+        this.callbacks.onPlaySound(correct ? 'success' : 'error');
+        onAnswer(correct);
+        const newState = { answered: true, correct, streak: correct ? state.streak + 1 : 0 };
+        setTimeout(() => renderResult(newState), 1800);
+      });
+    });
   }
 
   showLeaderboard(entries: Array<{ id: string; name: string; score: number; updatedAt: number }>, myId: string) {

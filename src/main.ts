@@ -23,6 +23,59 @@ import { CloudSync } from '@/core/cloudSync';
 import astronautsData from '@/data/astronauts.json';
 import narrativeLines from '@/data/narrativeLines.json';
 
+// --- Sistema de Badges ---
+const BADGES = [
+  { id: 'first-mission',      icon: '🚀', name: 'Primeira Missão',       desc: 'Respondeu sua primeira pergunta de missão' },
+  { id: 'half-missions',      icon: '🌗', name: 'Meio Caminho',           desc: 'Completou missões em metade dos corpos' },
+  { id: 'all-missions',       icon: '🏆', name: 'Mestre do Sistema Solar', desc: 'Completou missões em todos os corpos' },
+  { id: 'moon-visited',       icon: '🌙', name: 'Lunar',                  desc: 'Visitou a Lua' },
+  { id: 'portal-unlocked',    icon: '🌌', name: 'Portal Interestelar',    desc: 'Desbloqueou o portal exoplanetário' },
+  { id: 'all-planets',        icon: '🪐', name: 'Grande Viajante',        desc: 'Visitou todos os planetas' },
+  { id: 'grande-missao',      icon: '⭐', name: 'Grande Missão',          desc: 'Completou a Grande Missão' },
+  { id: 'grande-missao-3stars', icon: '🌟', name: 'Estrela Tripla',      desc: 'Acertou 8+ na Grande Missão' },
+];
+
+// --- Sistema de Desafio Diário ---
+const DAILY_KEY = 'solar-explorer:daily';
+interface DailyState { date: string; answered: boolean; correct: boolean; streak: number }
+
+function getTodayString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDailyState(): DailyState {
+  try {
+    const raw = localStorage.getItem(DAILY_KEY);
+    if (raw) {
+      const s = JSON.parse(raw) as DailyState;
+      if (s.date === getTodayString()) return s;
+      // Novo dia — streak quebra se ontem não respondeu (simplificado: mantém se foi ontem)
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      return { date: getTodayString(), answered: false, correct: false, streak: s.date === yesterday && s.correct ? s.streak : 0 };
+    }
+  } catch { /* */ }
+  return { date: getTodayString(), answered: false, correct: false, streak: 0 };
+}
+
+function saveDailyState(s: DailyState) {
+  try { localStorage.setItem(DAILY_KEY, JSON.stringify(s)); } catch { /* */ }
+}
+
+function getDailyQuestion(): MissionQuestion {
+  const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
+  const all: MissionQuestion[] = [];
+  for (const b of data.bodies) {
+    if (b.type === 'belt') continue;
+    all.push(b.mission.easy, b.mission.medium);
+    const bp = pool[b.id];
+    if (bp?.easy)   all.push(...bp.easy);
+    if (bp?.medium) all.push(...bp.medium);
+  }
+  // Semente determinística por data para ser igual para todos no mesmo dia
+  const seed = getTodayString().replace(/-/g, '').split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 0);
+  return all[Math.abs(seed) % all.length];
+}
+
 // Vista geral de cada modo, olhando para o Sol. No real a Terra está a
 // ~23 mil unidades do Sol — a vista mostra o sistema interno como pontos
 const VISTA_GERAL: Record<ScaleMode, THREE.Vector3> = {
@@ -120,6 +173,13 @@ function getMissionScore(): number {
   );
 }
 
+function checkAndAwardBadge(id: string) {
+  if (store.addBadge(id)) {
+    const def = BADGES.find((b) => b.id === id);
+    if (def) hud.showBadgeToast(def.icon, def.name, def.desc);
+  }
+}
+
 // HUD
 const hud = new HUD(uiRoot, {
   onSelectBody: (id) => selectBody(id),
@@ -129,6 +189,13 @@ const hud = new HUD(uiRoot, {
     store.recordMission(bodyId, diff, correct);
     const name = store.get().certificateName || 'Explorador';
     cloudSync.submitLeaderboard(name, getMissionScore());
+    // Badge checks
+    const missions = store.get().completedMissions;
+    const answeredCount = Object.keys(missions).length;
+    if (answeredCount >= 1) checkAndAwardBadge('first-mission');
+    const half = Math.ceil(mainBodies.length / 2);
+    if (answeredCount >= half) checkAndAwardBadge('half-missions');
+    if (answeredCount >= mainBodies.length) checkAndAwardBadge('all-missions');
   },
   onDifficulty: () => {},
   onCertificate: () => showCertificate(),
@@ -137,9 +204,24 @@ const hud = new HUD(uiRoot, {
     audio.grandeMissao();
     hud.showGrandeMissao(buildGrandeMissaoQuestions());
   },
-  onGrandeMissaoComplete: (_score, _total) => {
+  onGrandeMissaoComplete: (score, _total) => {
     const name = store.get().certificateName || 'Explorador';
     cloudSync.submitLeaderboard(name, getMissionScore());
+    checkAndAwardBadge('grande-missao');
+    if (score >= 8) checkAndAwardBadge('grande-missao-3stars');
+  },
+  onBadges: () => {
+    hud.showBadges(BADGES, store.get().earnedBadges ?? []);
+  },
+  onDailyChallenge: () => {
+    const state = getDailyState();
+    hud.setDailyStreak(state.streak);
+    hud.showDailyChallenge(getDailyQuestion(), state, (correct) => {
+      const newStreak = correct ? state.streak + 1 : 0;
+      saveDailyState({ date: getTodayString(), answered: true, correct, streak: newStreak });
+      hud.setDailyStreak(newStreak);
+      if (correct) checkAndAwardBadge('first-mission');
+    });
   },
   onLeaderboard: async () => {
     const entries = await cloudSync.getLeaderboard();
@@ -199,6 +281,9 @@ if (!store.get().onboardingDone) {
     }, 400);
   });
 }
+
+// Inicializa streak do desafio diário no botão
+hud.setDailyStreak(getDailyState().streak);
 
 // Narrativa de abertura — Modo História
 setTimeout(() => {
@@ -455,6 +540,7 @@ function selectBody(id: string) {
       showMoonPanel();
       const moonLine = (narrativeLines as Record<string, { astronaut: string; color: string; text: string }>)['moon'];
       if (moonLine) hud.showNarrativeBubble(moonLine.astronaut, moonLine.color, moonLine.text);
+      checkAndAwardBadge('moon-visited');
     });
     return;
   }
@@ -511,6 +597,8 @@ function selectBody(id: string) {
     if (visited.length >= mainBodies.length) {
       hub.exoPortal?.unlock();
       rebuildSelectable();
+      checkAndAwardBadge('portal-unlocked');
+      checkAndAwardBadge('all-planets');
     }
   }
   hud.hidePlanet();
@@ -680,8 +768,10 @@ function showCertificate() {
 function buildGrandeMissaoQuestions(): MissionQuestion[] {
   const all: MissionQuestion[] = [];
   const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
+  const portalUnlocked = hub.exoPortal?.unlocked ?? false;
   for (const b of data.bodies) {
-    if (b.type === 'belt' || b.type === 'exoplanet') continue;
+    if (b.type === 'belt') continue;
+    if (b.type === 'exoplanet' && !portalUnlocked) continue;
     all.push(b.mission.easy, b.mission.medium);
     const bp = pool[b.id];
     if (bp?.easy)   all.push(...bp.easy);

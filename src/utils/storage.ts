@@ -105,6 +105,17 @@ export class ProgressStore {
     this.save();
   }
 
+  hasBadge(id: string): boolean {
+    return (this.state.earnedBadges ?? []).includes(id);
+  }
+
+  addBadge(id: string): boolean {
+    if (this.hasBadge(id)) return false;
+    this.state.earnedBadges = [...(this.state.earnedBadges ?? []), id];
+    this.save();
+    return true;
+  }
+
   /** Callback disparado após cada save — usado pelo cloudSync para debounce. */
   onSave?: () => void;
 

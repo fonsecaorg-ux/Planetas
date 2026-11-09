@@ -127,4 +127,5 @@ export interface ProgressState {
   onboardingDone: boolean;
   activeAstronaut: string | null;
   journeyDone?: boolean;
+  earnedBadges?: string[];
 }
