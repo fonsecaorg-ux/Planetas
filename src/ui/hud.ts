@@ -24,6 +24,7 @@ export interface HUDCallbacks {
   onBase: () => void;
   onDiary: () => void;
   onExpedition: () => void;
+  onPlanetCreator: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
   onSpeak: (text: string) => void;
   onReset: () => void;
@@ -81,6 +82,7 @@ export class HUD {
                 <button class="btn" id="badges-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🏅 Conquistas</button>
                 <button class="btn" id="expedition-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🧭 Expedições</button>
                 <button class="btn" id="daily-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">📅 Desafio do dia</button>
+                <button class="btn" id="planet-creator-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🪐 Criar planeta</button>
                 <button class="btn" id="profile-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px;">👤 Perfil</button>
                 <select id="astro-select" style="width:100%;padding:4px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--fg);border:1px solid rgba(255,255,255,0.15);font-size:0.72rem;">
                   <option value="">Escolher explorador</option>
@@ -147,6 +149,7 @@ export class HUD {
     this.root.querySelector('#badges-btn')?.addEventListener('click', () => { this.callbacks.onBadges(); this._closeMoreMenu(); });
     this.root.querySelector('#expedition-btn')?.addEventListener('click', () => { this.callbacks.onExpedition(); this._closeMoreMenu(); });
     this.root.querySelector('#daily-btn')?.addEventListener('click', () => { this.callbacks.onDailyChallenge(); this._closeMoreMenu(); });
+    this.root.querySelector('#planet-creator-btn')?.addEventListener('click', () => { this.callbacks.onPlanetCreator(); this._closeMoreMenu(); });
     this.root.querySelector('#map-btn')?.addEventListener('click', () => this.callbacks.onProgressMap());
     this.root.querySelector('#profile-btn')?.addEventListener('click', () => { this.callbacks.onProfile(); this._closeMoreMenu(); });
     this.root.querySelector('#xp-pill')?.addEventListener('click', () => this.callbacks.onExpedition());
@@ -566,32 +569,240 @@ export class HUD {
   showOnboarding(onDone: (astronautId: string | null) => void) {
     const overlay = document.createElement('div');
     overlay.className = 'cert visible';
-    overlay.innerHTML = `
-      <div class="cert__card interactive" style="max-width:640px;">
-        <h1>🚀 Bem-vindo, Explorador!</h1>
-        <div style="text-align:left;font-size:0.9rem;line-height:1.6;">
-          <p><b>1.</b> Clique em um planeta para voar até ele.</p>
-          <p><b>2.</b> Use o toggle <b>Visual / Escala real</b> para sentir o tamanho verdadeiro do espaço.</p>
-          <p><b>3.</b> Responda às missões para ganhar seu certificado.</p>
-          <p style="opacity:0.7;font-size:0.8rem;">Arraste para orbitar, scroll para zoom. No celular, toque e arraste.</p>
-        </div>
-        <div style="margin-top:12px;text-align:left;">
-          <label style="font-size:0.85rem;">Escolha seu personagem (os demais o acompanham):</label>
-          <select id="onb-astro" style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.06);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);width:100%;">
+    let step = 0;
+
+    const STEPS = [
+      {
+        title: '🚀 Bem-vindo ao Sistema Solar!',
+        body: `
+          <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:3rem;">🌌</div>
+            <p style="font-size:0.95rem;line-height:1.6;margin:8px 0 0;">
+              Você está prestes a explorar os <b>8 planetas</b>, a <b>Lua</b>, exoplanetas e muito mais!<br>
+              <span style="font-size:0.8rem;opacity:0.6;">Preparado, explorador?</span>
+            </p>
+          </div>`,
+        nextLabel: 'Como explorar →',
+        showAstro: false,
+      },
+      {
+        title: '🕹️ Como explorar',
+        body: `
+          <div style="text-align:left;font-size:0.88rem;line-height:1.65;">
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+              <b>🖱️ Mover / 👆 Tocar</b> — clique em qualquer planeta para voar até ele.
+            </div>
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+              <b>🔭 Visual / Real</b> — alterne para sentir o tamanho verdadeiro do espaço.
+            </div>
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+              <b>🔍 Objetos ocultos</b> — procure bolinhas brilhantes nos planetas para ganhar XP!
+            </div>
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;">
+              <b>🎯 Missões</b> — cada planeta tem perguntas opcionais. Responda para evoluir!
+            </div>
+          </div>`,
+        nextLabel: 'Escolher explorador →',
+        showAstro: false,
+      },
+      {
+        title: '👨‍🚀 Escolha seu explorador',
+        body: `
+          <div style="margin-bottom:10px;font-size:0.85rem;opacity:0.75;">Quem vai liderar a missão? Os demais astronautas acompanham você.</div>
+          <select id="onb-astro" style="padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);width:100%;font-size:0.88rem;">
             ${astronautsData.astronauts.map((a) => `<option value="${a.id}">${a.name} — ${a.role}</option>`).join('')}
-          </select>
+          </select>`,
+        nextLabel: '🚀 Começar exploração!',
+        showAstro: true,
+      },
+    ];
+
+    const render = () => {
+      const s = STEPS[step];
+      overlay.innerHTML = `
+        <div class="cert__card interactive" style="max-width:580px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <div style="font-size:0.65rem;color:#7dd3fc;letter-spacing:1px;">ETAPA ${step + 1} / ${STEPS.length}</div>
+            <div style="display:flex;gap:5px;">${STEPS.map((_, i) => `<div style="width:22px;height:3px;border-radius:2px;background:${i <= step ? '#6366f1' : 'rgba(255,255,255,0.15)'}"></div>`).join('')}</div>
+          </div>
+          <h1 style="margin:8px 0 14px;">${s.title}</h1>
+          ${s.body}
+          <div style="margin-top:18px;display:flex;justify-content:space-between;align-items:center;">
+            ${step > 0 ? '<button id="onb-back" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.85rem;">← Voltar</button>' : '<div></div>'}
+            <button class="btn primary" id="onb-next" style="padding:10px 20px;">${s.nextLabel}</button>
+          </div>
         </div>
-        <div style="margin-top:16px;">
-          <button class="btn primary" id="onb-start">Começar exploração</button>
-        </div>
-      </div>
-    `;
+      `;
+      overlay.querySelector('#onb-next')?.addEventListener('click', () => {
+        if (step < STEPS.length - 1) {
+          step++;
+          render();
+        } else {
+          const sel = overlay.querySelector('#onb-astro') as HTMLSelectElement | null;
+          overlay.remove();
+          onDone(sel?.value || null);
+        }
+      });
+      overlay.querySelector('#onb-back')?.addEventListener('click', () => { step--; render(); });
+    };
+    render();
     document.body.appendChild(overlay);
-    overlay.querySelector('#onb-start')?.addEventListener('click', () => {
-      const sel = overlay.querySelector('#onb-astro') as HTMLSelectElement;
-      overlay.remove();
-      onDone(sel?.value || null);
-    });
+  }
+
+  showCosmicEventBanner(type: 'meteor' | 'comet' | 'eclipse') {
+    document.getElementById('cosmic-banner')?.remove();
+    const info = {
+      meteor:  { icon: '🌠', label: 'Chuva de Meteoros!',  color: '#fbbf24', desc: 'Olhe ao redor — traços de luz cruzando o sistema solar.' },
+      comet:   { icon: '☄️',  label: 'Cometa Detectado!',   color: '#7dd3fc', desc: 'Um cometa está atravessando o sistema solar agora!' },
+      eclipse: { icon: '🌑',  label: 'Eclipse Solar!',      color: '#a78bfa', desc: 'A Lua bloqueia temporariamente a luz do Sol.' },
+    }[type];
+    const banner = document.createElement('div');
+    banner.id = 'cosmic-banner';
+    banner.style.cssText = `position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:997;background:rgba(8,13,26,0.97);border:1px solid ${info.color}66;border-radius:14px;padding:12px 18px;max-width:360px;width:90%;box-shadow:0 0 24px ${info.color}44;animation:fadeInHidden 0.5s ease;text-align:center;`;
+    banner.innerHTML = `
+      <div style="font-size:2rem;">${info.icon}</div>
+      <div style="font-size:0.85rem;font-weight:700;color:${info.color};margin:4px 0;">EVENTO: ${info.label}</div>
+      <div style="font-size:0.75rem;opacity:0.75;">${info.desc}</div>
+    `;
+    if (!document.getElementById('hidden-toast-style')) {
+      const s = document.createElement('style');
+      s.id = 'hidden-toast-style';
+      s.textContent = '@keyframes fadeInHidden{from{opacity:0;transform:translateX(-50%) translateY(-20px) scale(0.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}';
+      document.head.appendChild(s);
+    }
+    document.body.appendChild(banner);
+    setTimeout(() => {
+      if (!banner.isConnected) return;
+      banner.style.transition = 'opacity 0.6s';
+      banner.style.opacity = '0';
+      setTimeout(() => banner.remove(), 700);
+    }, 7000);
+  }
+
+  showPlanetCreator(onCreated: (opts: {
+    name: string; color: string; radius: number; rings: boolean; moons: number; atmosphere: boolean; type: string;
+  }) => void) {
+    document.getElementById('planet-creator-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'planet-creator-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.96);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;overflow-y:auto;';
+
+    const COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#6366f1','#a855f7','#ec4899','#ffffff','#78716c'];
+    let chosen = { name: 'Novo Planeta', color: '#6366f1', radius: 4, rings: false, moons: 0, atmosphere: false, type: 'rocky' };
+
+    const updatePreview = () => {
+      const prev = overlay.querySelector('#pc-preview') as HTMLElement | null;
+      if (!prev) return;
+      const r = chosen.radius * 8 + 20;
+      prev.innerHTML = '';
+      prev.style.cssText = `position:relative;width:${r * 2 + (chosen.rings ? 70 : 0)}px;height:${r * 2 + 40}px;display:flex;align-items:center;justify-content:center;`;
+
+      // Atmosfera glow
+      if (chosen.atmosphere) {
+        const atm = document.createElement('div');
+        atm.style.cssText = `position:absolute;width:${r * 2 + 20}px;height:${r * 2 + 20}px;border-radius:50%;background:radial-gradient(circle,transparent 60%,${chosen.color}44 100%);pointer-events:none;`;
+        prev.appendChild(atm);
+      }
+      // Planeta
+      const planet = document.createElement('div');
+      planet.style.cssText = `width:${r * 2}px;height:${r * 2}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${chosen.color}ee,${chosen.color}88);box-shadow:0 0 ${r * 0.5}px ${chosen.color}66;flex-shrink:0;position:relative;z-index:1;`;
+      prev.appendChild(planet);
+      // Anéis
+      if (chosen.rings) {
+        const ring = document.createElement('div');
+        ring.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotateX(70deg);width:${r * 2 + 60}px;height:${r * 0.7}px;border-radius:50%;border:5px solid ${chosen.color}88;box-sizing:border-box;pointer-events:none;`;
+        prev.appendChild(ring);
+      }
+      // Luas
+      for (let i = 0; i < chosen.moons; i++) {
+        const angle = (i / chosen.moons) * Math.PI * 2;
+        const dist = r + 22 + i * 8;
+        const moon = document.createElement('div');
+        moon.style.cssText = `position:absolute;width:7px;height:7px;border-radius:50%;background:#aaaaaa;top:calc(50% + ${Math.sin(angle) * dist}px - 3.5px);left:calc(50% + ${Math.cos(angle) * dist}px - 3.5px);`;
+        prev.appendChild(moon);
+      }
+    };
+
+    const render = () => {
+      overlay.innerHTML = `
+        <div style="max-width:520px;width:100%;color:#e8eef7;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="margin:0;color:#c084fc;">🪐 Criador de Planeta</h2>
+            <button id="pc-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕</button>
+          </div>
+
+          <!-- Preview -->
+          <div style="display:flex;justify-content:center;align-items:center;min-height:120px;margin-bottom:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;">
+            <div id="pc-preview"></div>
+          </div>
+
+          <!-- Nome -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:0.75rem;opacity:0.6;display:block;margin-bottom:4px;">NOME DO PLANETA</label>
+            <input id="pc-name" value="${chosen.name}" style="width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:#e8eef7;border:1px solid rgba(255,255,255,0.15);font-size:0.9rem;box-sizing:border-box;" />
+          </div>
+
+          <!-- Cor -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:0.75rem;opacity:0.6;display:block;margin-bottom:6px;">COR</label>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;">
+              ${COLORS.map((c) => `<button class="pc-color" data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:3px solid ${c === chosen.color ? '#fff' : 'transparent'};cursor:pointer;padding:0;"></button>`).join('')}
+            </div>
+          </div>
+
+          <!-- Tipo -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:0.75rem;opacity:0.6;display:block;margin-bottom:6px;">TIPO</label>
+            <div style="display:flex;gap:6px;">
+              ${['rocky','gas','ice'].map((t) => `<button class="pc-type" data-t="${t}" style="flex:1;padding:7px;border-radius:8px;border:1px solid ${chosen.type === t ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.1)'};background:rgba(${chosen.type === t ? '99,102,241,0.15' : '255,255,255,0.03'});color:#e8eef7;font-size:0.8rem;cursor:pointer;">${{rocky:'🪨 Rochoso',gas:'🌀 Gasoso',ice:'🧊 Gelado'}[t]}</button>`).join('')}
+            </div>
+          </div>
+
+          <!-- Tamanho -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:0.75rem;opacity:0.6;display:block;margin-bottom:4px;">TAMANHO — ${chosen.radius}× Terra</label>
+            <input id="pc-radius" type="range" min="1" max="11" step="1" value="${chosen.radius}" style="width:100%;accent-color:#6366f1;" />
+          </div>
+
+          <!-- Toggles -->
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <button id="pc-rings" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${chosen.rings ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.1)'};background:rgba(${chosen.rings ? '99,102,241,0.15' : '255,255,255,0.03'});color:#e8eef7;font-size:0.8rem;cursor:pointer;">${chosen.rings ? '💍 Com anéis ✓' : '💍 Adicionar anéis'}</button>
+            <button id="pc-atm" style="flex:1;padding:8px;border-radius:8px;border:1px solid ${chosen.atmosphere ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.1)'};background:rgba(${chosen.atmosphere ? '99,102,241,0.15' : '255,255,255,0.03'});color:#e8eef7;font-size:0.8rem;cursor:pointer;">${chosen.atmosphere ? '🌫️ Atmosfera ✓' : '🌫️ Sem atmosfera'}</button>
+          </div>
+
+          <!-- Luas -->
+          <div style="margin-bottom:20px;">
+            <label style="font-size:0.75rem;opacity:0.6;display:block;margin-bottom:4px;">LUAS — ${chosen.moons}</label>
+            <input id="pc-moons" type="range" min="0" max="5" step="1" value="${chosen.moons}" style="width:100%;accent-color:#6366f1;" />
+          </div>
+
+          <button id="pc-create" class="btn primary" style="width:100%;padding:12px;font-size:1rem;">🪐 Criar planeta!</button>
+        </div>
+      `;
+      updatePreview();
+
+      overlay.querySelector('#pc-close')?.addEventListener('click', () => overlay.remove());
+      (overlay.querySelector('#pc-name') as HTMLInputElement)?.addEventListener('input', (e) => { chosen.name = (e.target as HTMLInputElement).value || 'Planeta'; updatePreview(); });
+      (overlay.querySelector('#pc-radius') as HTMLInputElement)?.addEventListener('input', (e) => { chosen.radius = parseInt((e.target as HTMLInputElement).value); render(); });
+      (overlay.querySelector('#pc-moons') as HTMLInputElement)?.addEventListener('input', (e) => { chosen.moons = parseInt((e.target as HTMLInputElement).value); render(); });
+      overlay.querySelector('#pc-rings')?.addEventListener('click', () => { chosen.rings = !chosen.rings; render(); });
+      overlay.querySelector('#pc-atm')?.addEventListener('click', () => { chosen.atmosphere = !chosen.atmosphere; render(); });
+      overlay.querySelectorAll('.pc-color').forEach((btn) => {
+        btn.addEventListener('click', () => { chosen.color = (btn as HTMLElement).dataset.c!; render(); });
+      });
+      overlay.querySelectorAll('.pc-type').forEach((btn) => {
+        btn.addEventListener('click', () => { chosen.type = (btn as HTMLElement).dataset.t!; render(); });
+      });
+      overlay.querySelector('#pc-create')?.addEventListener('click', () => {
+        const nameInput = overlay.querySelector('#pc-name') as HTMLInputElement;
+        if (nameInput) chosen.name = nameInput.value.trim() || 'Planeta';
+        overlay.remove();
+        onCreated(chosen);
+      });
+    };
+
+    render();
+    document.body.appendChild(overlay);
   }
 
   setScaleIndicator(text: string) {

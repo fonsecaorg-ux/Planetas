@@ -378,6 +378,8 @@ export class HubScene {
       mesh.emissiveIntensity = 2.0 + Math.sin(this.hiddenT * 2.2) * 1.0;
       glow.opacity = p;
     }
+    // Eventos cósmicos
+    if (this._cosmicTick) this._cosmicTick(dt);
   }
 
   setScaleMode(mode: ScaleMode, data: SolarSystemData) {
@@ -392,6 +394,155 @@ export class HubScene {
 
   getBody(id: string): CelestialBody | undefined {
     return this.bodies.get(id);
+  }
+
+  /** Inicia uma chuva de meteoros: ~60 traços voando pelo sistema. Dura ~9 s. */
+  startMeteorShower(): () => void {
+    const COUNT = 60;
+    const meteors: THREE.Line[] = [];
+    const speeds: number[] = [];
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, toneMapped: false });
+
+    for (let i = 0; i < COUNT; i++) {
+      const spread = 180;
+      const origin = new THREE.Vector3(
+        (Math.random() - 0.5) * spread,
+        (Math.random() - 0.5) * spread * 0.4 + 20,
+        (Math.random() - 0.5) * spread,
+      );
+      const dir = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.6 - 0.2,
+        -0.6 - Math.random() * 0.4,
+        (Math.random() - 0.5) * 0.6,
+      ).normalize();
+      const len = 4 + Math.random() * 6;
+      const pts = [origin.clone(), origin.clone().addScaledVector(dir, len)];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geo, lineMat);
+      (line as any).__dir = dir;
+      (line as any).__speed = 18 + Math.random() * 20;
+      this.group.add(line);
+      meteors.push(line);
+      speeds.push(0);
+    }
+
+    let elapsed = 0;
+    const tick = (dt: number) => {
+      elapsed += dt;
+      const fade = elapsed > 7 ? 1 - (elapsed - 7) / 2 : 1;
+      (lineMat as THREE.LineBasicMaterial).opacity = Math.max(0, 0.85 * fade);
+      for (const m of meteors) {
+        const speed = (m as any).__speed as number;
+        const dir = (m as any).__dir as THREE.Vector3;
+        m.position.addScaledVector(dir, speed * dt);
+      }
+    };
+    this._cosmicTick = tick;
+
+    const cleanup = () => {
+      this._cosmicTick = null;
+      for (const m of meteors) {
+        this.group.remove(m);
+        m.geometry.dispose();
+      }
+      lineMat.dispose();
+    };
+    setTimeout(cleanup, 9000);
+    return cleanup;
+  }
+
+  /** Lança um cometa brilhante atravessando o sistema solar. Dura ~8 s. */
+  startComet(): () => void {
+    const color = new THREE.Color(0x88ddff);
+    const headGeo = new THREE.SphereGeometry(1.2, 8, 8);
+    const headMat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 4, toneMapped: false });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.set(-160, 30, -80);
+
+    // Cauda: cone translúcido
+    const tailGeo = new THREE.ConeGeometry(1.0, 22, 8);
+    const tailMat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.5, transparent: true, opacity: 0.35, side: THREE.DoubleSide, toneMapped: false });
+    const tail = new THREE.Mesh(tailGeo, tailMat);
+    tail.rotation.z = -Math.PI / 2;
+    tail.position.set(-11, 0, 0);
+    head.add(tail);
+    this.group.add(head);
+
+    const dir = new THREE.Vector3(1, -0.15, 0.3).normalize();
+    const speed = 44;
+    let elapsed = 0;
+
+    const tick = (dt: number) => {
+      elapsed += dt;
+      head.position.addScaledVector(dir, speed * dt);
+      const fade = elapsed > 6 ? 1 - (elapsed - 6) / 2 : 1;
+      headMat.emissiveIntensity = 4 * fade;
+      tailMat.opacity = 0.35 * fade;
+    };
+    this._cosmicTick = tick;
+
+    const cleanup = () => {
+      this._cosmicTick = null;
+      this.group.remove(head);
+      headGeo.dispose(); headMat.dispose();
+      tailGeo.dispose(); tailMat.dispose();
+    };
+    setTimeout(cleanup, 8000);
+    return cleanup;
+  }
+
+  /** Eclipse: escurece gradualmente e clareia — 10 s no total. */
+  startEclipse(): () => void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;pointer-events:none;z-index:50;opacity:0;transition:opacity 2s;';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => { overlay.style.opacity = '0.72'; });
+    const t1 = setTimeout(() => { overlay.style.opacity = '0'; }, 5000);
+    const t2 = setTimeout(() => { overlay.remove(); this._cosmicTick = null; }, 7000);
+
+    const cleanup = () => {
+      clearTimeout(t1); clearTimeout(t2);
+      this._cosmicTick = null;
+      overlay.remove();
+    };
+    return cleanup;
+  }
+
+  _cosmicTick: ((dt: number) => void) | null = null;
+
+  /** Adiciona um planeta criado pelo usuário à cena (posicionado além do cinturão). */
+  addCustomPlanet(opts: {
+    name: string; color: string; radius: number; rings: boolean; moons: number;
+  }): THREE.Group {
+    const color = new THREE.Color(opts.color);
+    const geo = new THREE.SphereGeometry(opts.radius, 32, 32);
+    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.1 });
+    const mesh = new THREE.Mesh(geo, mat);
+    const group = new THREE.Group();
+    group.add(mesh);
+
+    if (opts.rings) {
+      const rInner = opts.radius * 1.4, rOuter = opts.radius * 2.2;
+      const rGeo = new THREE.RingGeometry(rInner, rOuter, 48);
+      const rMat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.45 });
+      const ring = new THREE.Mesh(rGeo, rMat);
+      ring.rotation.x = Math.PI / 2.4;
+      group.add(ring);
+    }
+    for (let i = 0; i < Math.min(opts.moons, 5); i++) {
+      const angle = (i / opts.moons) * Math.PI * 2;
+      const dist = opts.radius * (2.8 + i * 0.7);
+      const mGeo = new THREE.SphereGeometry(opts.radius * 0.12, 8, 8);
+      const mMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+      const moon = new THREE.Mesh(mGeo, mMat);
+      moon.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+      group.add(moon);
+    }
+
+    group.position.set(0, 0, -380);
+    (group as any).userData = { bodyId: `custom:${opts.name}` };
+    this.group.add(group);
+    return group;
   }
 
   dispose() {

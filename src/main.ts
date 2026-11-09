@@ -421,6 +421,13 @@ const hud = new HUD(uiRoot, {
   onReset: () => store.reset(),
   onBack: () => goBackToHub(),
   onCloseCard: () => closeCard(),
+  onPlanetCreator: () => hud.showPlanetCreator((opts) => {
+    const group = hub.addCustomPlanet({ name: opts.name, color: opts.color, radius: opts.radius, rings: opts.rings, moons: opts.moons });
+    hud.showBadgeToast('🪐', `${opts.name} criado!`, 'Novo planeta adicionado ao sistema solar.');
+    // Voar até ele
+    const target = group.position.clone();
+    viajar(target.clone().add(new THREE.Vector3(0, opts.radius * 2, opts.radius * 6)), target);
+  }),
   xrRenderer: engine.renderer,
 }, progress);
 const mainBodies = data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet');
@@ -475,6 +482,20 @@ const xr = new XRManager({
     if (obj && (obj as any).userData?.bodyId) selectBody((obj as any).userData.bodyId);
   },
 });
+
+// --- Eventos Cósmicos ---
+(function scheduleCosmic() {
+  const delay = 180_000 + Math.random() * 240_000; // 3–7 min
+  setTimeout(() => {
+    const events: Array<'meteor' | 'comet' | 'eclipse'> = ['meteor', 'comet', 'eclipse'];
+    const type = events[Math.floor(Math.random() * events.length)];
+    hud.showCosmicEventBanner(type);
+    if (type === 'meteor') hub.startMeteorShower();
+    else if (type === 'comet') hub.startComet();
+    else hub.startEclipse();
+    scheduleCosmic();
+  }, delay);
+})();
 
 // raycasting selection
 const raycaster = new THREE.Raycaster();
