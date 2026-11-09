@@ -12,9 +12,10 @@ export interface HUDCallbacks {
   onDifficulty: (d: 'easy' | 'medium') => void;
   onCertificate: () => void;
   onCertificateName: (name: string) => void;
+  onGrandeMissao: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
-  onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition') => void;
+  onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
   onSpeak: (text: string) => void;
   onReset: () => void;
   onBack: () => void;
@@ -578,12 +579,14 @@ export class HUD {
           <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">Portal Interestelar ativo! Explore exoplanetas além do sistema solar.</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
+          <button id="cel-quiz" style="padding:10px 22px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">🎯 Grande Missão Final</button>
           <button id="cel-cert" style="padding:10px 22px;background:#fbbf24;color:#000;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📜 Ver Certificado</button>
           <button id="cel-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Continuar explorando</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
+    overlay.querySelector('#cel-quiz')?.addEventListener('click', () => { overlay.remove(); this.callbacks.onGrandeMissao(); });
     overlay.querySelector('#cel-cert')?.addEventListener('click', () => { overlay.remove(); this.callbacks.onCertificate(); });
     overlay.querySelector('#cel-close')?.addEventListener('click', () => overlay.remove());
   }
@@ -596,6 +599,7 @@ export class HUD {
       <div style="font-size:0.85rem;opacity:0.85;margin:8px 0 12px;line-height:1.5;">
         Parabéns! Você completou o sistema solar. Estes são mundos em outras estrelas — cada um a anos-luz de distância.
       </div>
+      <button id="exo-quiz-btn" class="btn" style="width:100%;background:#6366f1;color:#fff;margin-bottom:10px;">🎯 Grande Missão Final</button>
       ${exoplanets.map((ex) => `
         <div class="exo-btn" data-id="${ex.id}" style="border:1px solid rgba(100,200,255,0.25);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:rgba(100,180,255,0.05);">
           <div style="font-weight:700;color:#7dd3fc;">${ex.name}</div>
@@ -606,6 +610,7 @@ export class HUD {
     `;
     card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
+    card.querySelector('#exo-quiz-btn')?.addEventListener('click', () => this.callbacks.onGrandeMissao());
     card.querySelectorAll('.exo-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = (btn as HTMLElement).dataset.id!;
@@ -613,6 +618,82 @@ export class HUD {
         if (ex) this.showPlanet(ex);
       });
     });
+  }
+
+  showGrandeMissao(questions: MissionQuestion[]) {
+    const TOTAL = questions.length;
+    let current = 0;
+    let score = 0;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.96);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    document.body.appendChild(overlay);
+
+    const renderQuestion = () => {
+      if (current >= TOTAL) { renderResults(); return; }
+      const q = questions[current];
+      const pct = Math.round((current / TOTAL) * 100);
+      overlay.innerHTML = `
+        <div style="max-width:520px;width:100%;color:#e8eef7;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:0.9rem;color:#7dd3fc;font-weight:700;">🎯 Grande Missão Final</span>
+            <span style="font-size:0.85rem;opacity:0.7;">Pergunta ${current + 1} / ${TOTAL}</span>
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;margin-bottom:16px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:#6366f1;border-radius:3px;transition:width 0.3s;"></div>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px 20px;margin-bottom:14px;font-size:1rem;line-height:1.5;">${q.q}</div>
+          <div id="gm-opts" style="display:flex;flex-direction:column;gap:8px;">
+            ${q.options.map((o, i) => `<button class="gm-opt" data-idx="${i}" style="padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#e8eef7;font-size:0.9rem;cursor:pointer;text-align:left;">${o}</button>`).join('')}
+          </div>
+          <div id="gm-fb" style="min-height:24px;margin-top:10px;font-size:0.85rem;text-align:center;"></div>
+        </div>
+      `;
+      overlay.querySelectorAll('.gm-opt').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt((btn as HTMLElement).dataset.idx!);
+          const correct = idx === q.answer;
+          if (correct) score++;
+          overlay.querySelectorAll('.gm-opt').forEach((b, i) => {
+            const el = b as HTMLElement;
+            el.style.pointerEvents = 'none';
+            el.style.background = i === q.answer ? 'rgba(34,197,94,0.3)' : (i === idx && !correct ? 'rgba(239,68,68,0.3)' : '');
+            el.style.borderColor = i === q.answer ? '#22c55e' : (i === idx && !correct ? '#ef4444' : 'rgba(255,255,255,0.15)');
+          });
+          const fb = overlay.querySelector('#gm-fb') as HTMLElement;
+          fb.textContent = correct ? '✅ Correto!' : `❌ Errado. Resposta: "${q.options[q.answer]}"`;
+          fb.style.color = correct ? '#22c55e' : '#ef4444';
+          this.callbacks.onPlaySound(correct ? 'success' : 'error');
+          setTimeout(() => { current++; renderQuestion(); }, 1800);
+        });
+      });
+    };
+
+    const renderResults = () => {
+      const stars = score >= 9 ? 3 : score >= 6 ? 2 : 1;
+      const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      const msgs = ['Continue estudando! Você consegue!', 'Bom trabalho! Continue explorando!', 'Parabéns! Você é um verdadeiro Explorador!'];
+      overlay.innerHTML = `
+        <div style="max-width:460px;width:100%;color:#e8eef7;text-align:center;">
+          <div style="font-size:3rem;margin-bottom:8px;">🏆</div>
+          <h2 style="margin:0 0 8px;color:#fbbf24;">Grande Missão Concluída!</h2>
+          <div style="font-size:2.5rem;color:#fbbf24;letter-spacing:6px;margin:12px 0;">${starStr}</div>
+          <div style="font-size:1.3rem;margin-bottom:6px;"><b>${score}</b> de ${TOTAL} corretas</div>
+          <div style="font-size:0.9rem;opacity:0.8;margin-bottom:20px;">${msgs[stars - 1]}</div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button id="gm-retry" style="padding:10px 20px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;">🔄 Tentar novamente</button>
+            <button id="gm-cert" style="padding:10px 20px;background:#fbbf24;color:#000;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:700;">📜 Certificado</button>
+            <button id="gm-close" style="padding:10px 20px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:0.9rem;">Fechar</button>
+          </div>
+        </div>
+      `;
+      this.callbacks.onPlaySound(`quiz${stars}` as 'quiz1' | 'quiz2' | 'quiz3');
+      overlay.querySelector('#gm-retry')?.addEventListener('click', () => { current = 0; score = 0; renderQuestion(); });
+      overlay.querySelector('#gm-cert')?.addEventListener('click', () => { overlay.remove(); this.callbacks.onCertificate(); });
+      overlay.querySelector('#gm-close')?.addEventListener('click', () => overlay.remove());
+    };
+
+    renderQuestion();
   }
 
   setSyncStatus(status: 'idle' | 'syncing' | 'done' | 'error') {

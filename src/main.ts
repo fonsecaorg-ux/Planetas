@@ -10,7 +10,8 @@ import { animateCamera, stepTransition, shiftTransition, detourAround, ScreenFad
 import type { CameraTransition } from '@/scenes/transitions';
 import { HUD } from '@/ui/hud';
 import { XRManager } from '@/xr/xrManager';
-import type { BodyData, ScaleMode } from '@/data/types';
+import type { BodyData, ScaleMode, MissionQuestion } from '@/data/types';
+import questionPool from '@/data/questionPool.json';
 import { lightTravelSeconds, formatTime, sceneExtent, ANEL_EXTERNO } from '@/utils/scale';
 import { clamp } from '@/utils/easing';
 import { createStarfield } from '@/core/starfield';
@@ -123,6 +124,10 @@ const hud = new HUD(uiRoot, {
   onDifficulty: () => {},
   onCertificate: () => showCertificate(),
   onCertificateName: (name) => { store.setCertificate(name); },
+  onGrandeMissao: () => {
+    audio.grandeMissao();
+    hud.showGrandeMissao(buildGrandeMissaoQuestions());
+  },
   onAstronautSelect: (name) => {
     store.setCertificate(name);
     const astro = astronautsData.astronauts.find((a: any) => a.name === name);
@@ -136,6 +141,9 @@ const hud = new HUD(uiRoot, {
     else if (kind === 'error') audio.error();
     else if (kind === 'launch') audio.launch();
     else if (kind === 'transition') audio.transition();
+    else if (kind === 'quiz1') audio.quizResult(1);
+    else if (kind === 'quiz2') audio.quizResult(2);
+    else if (kind === 'quiz3') audio.quizResult(3);
   },
   onSpeak: (text) => audio.speak(text),
   onReset: () => store.reset(),
@@ -486,6 +494,7 @@ function selectBody(id: string) {
   viajar(pontoDeChegada(new THREE.Vector3()), ORIGEM, () => {
     currentScene = 'planet';
     selectedBodyId = id;
+    audio.arrival(bodyData.type);
     hud.showPlanet(bodyData);
     atualizarIndicadorEscala(bodyData);
   });
@@ -532,6 +541,7 @@ function cardHeader(title: string): string {
 }
 
 function goBackToHub() {
+  audio.ambient();
   const vindoDaBase = currentScene === 'base';
   if (baseScene) {
     engine.scene.remove(baseScene.group);
@@ -557,6 +567,7 @@ function goBackToHub() {
 }
 
 function switchToBase() {
+  audio.stopAmbient();
   transition = null;
   controls.enabled = true;
   engine.scene.remove(hub.group);
@@ -636,6 +647,24 @@ function showCertificate() {
   const name = saved || 'Explorador';
   store.setCertificate(name);
   hud.showCertificate(name, store.get().certificateDate!);
+}
+
+function buildGrandeMissaoQuestions(): MissionQuestion[] {
+  const all: MissionQuestion[] = [];
+  const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
+  for (const b of data.bodies) {
+    if (b.type === 'belt' || b.type === 'exoplanet') continue;
+    all.push(b.mission.easy, b.mission.medium);
+    const bp = pool[b.id];
+    if (bp?.easy)   all.push(...bp.easy);
+    if (bp?.medium) all.push(...bp.medium);
+  }
+  // Fisher-Yates shuffle e seleciona 10
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, 10);
 }
 
 // --- Sessão VR: o rig assume onde a câmera estava, e devolve ao sair ---
