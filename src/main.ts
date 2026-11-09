@@ -735,6 +735,15 @@ function switchToBase() {
       (pos, target) => { viajar(pos, target); },
     );
     rebuildSelectable();
+  } else if (store.get().journeyDone && baseScene) {
+    const s = store.get();
+    baseScene.showReturnState({
+      name: s.certificateName || 'Explorador',
+      visited: s.visited.length,
+      missions: Object.keys(s.completedMissions).length,
+      score: Object.values(s.completedMissions).reduce((acc, m: any) => acc + (m.score || 0), 0),
+    });
+    rebuildSelectable();
   }
 }
 
@@ -873,6 +882,11 @@ engine.onUpdate((dt) => {
   if (currentScene === 'base') {
     baseScene?.update(dt, timeSpeed);
     engine.setClipPlanes(BASE_NEAR, BASE_FAR);
+    if (baseScene && baseScene.shakeIntensity > 0) {
+      engine.camera.position.x += (Math.random() - 0.5) * baseScene.shakeIntensity;
+      engine.camera.position.y += (Math.random() - 0.5) * baseScene.shakeIntensity * 0.4;
+      engine.camera.position.z += (Math.random() - 0.5) * baseScene.shakeIntensity * 0.3;
+    }
   } else {
     hub.update(dt, timeSpeed, engine.camera);
     hub.applyFloatingOrigin();

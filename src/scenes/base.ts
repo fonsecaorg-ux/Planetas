@@ -393,6 +393,42 @@ class JourneyPanel {
     });
   }
 
+  renderComplete(stats: { name: string; visited: number; missions: number; score: number }) {
+    this._draw(() => {
+      const ctx = this.ctx;
+      this._base();
+      this._header('BASE DE LANÇAMENTO', 'MISSÃO CONCLUÍDA ✓', C.green);
+
+      ctx.font = '64px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏆', CANVAS_W / 2, 230);
+
+      ctx.fillStyle = C.textHi;
+      ctx.font = `bold 24px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(stats.name.toUpperCase(), CANVAS_W / 2, 285);
+
+      const statItems: [string, number][] = [
+        ['Visitados', stats.visited],
+        ['Missões', stats.missions],
+        ['Pontuação', stats.score],
+      ];
+      statItems.forEach(([label, val], i) => {
+        const cx = 170 + i * 230;
+        this._card(cx - 95, 310, 190, 110, C.cyanGlow, C.cyanDim);
+        ctx.fillStyle = C.cyan;
+        ctx.font = `bold 36px 'Courier New', monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(String(val), cx, 370);
+        ctx.fillStyle = C.textMid;
+        ctx.font = `12px 'Courier New', monospace`;
+        ctx.fillText(label.toUpperCase(), cx, 400);
+      });
+
+      this._footer('EXPLORE O SISTEMA SOLAR LIVREMENTE');
+    });
+  }
+
   dispose() {
     this.panelMesh.geometry.dispose();
     (this.panelMesh.material as THREE.Material).dispose();
@@ -671,13 +707,26 @@ export class BaseScene {
   private smokePos: Float32Array | null = null;
   private smokeVel: Float32Array | null = null;
   private smokeActive = false;
+  // Cinematic launch (D)
+  private dirLight!: THREE.DirectionalLight;
+  private padLights: THREE.SpotLight[] = [];
+  private flashTimer = 0;
+  private blinkTimer = 0;
+  shakeIntensity = 0;
+  // Animated monitors (F)
+  private monitorCtxs: CanvasRenderingContext2D[] = [];
+  private monitorTexs: THREE.CanvasTexture[] = [];
+  private monitorTimer = 0;
+  // Patrol (E)
+  private patrolActive = false;
+  private patrolTime = 0;
 
   onJourneyComplete?: () => void;
   onCameraRequest?: (pos: THREE.Vector3, target: THREE.Vector3) => void;
 
   constructor(astronautData: AstronautData[], rocketData: RocketData[], activeId: string | null) {
     this.group = new THREE.Group();
-    createDaylight(this.group);
+    this.dirLight = createDaylight(this.group);
 
     this._buildSky();
     this._buildGround();
@@ -884,6 +933,8 @@ export class BaseScene {
       mon.position.set(-2.5 + (i % 3) * 2.5, 2.4 + Math.floor(i / 3) * 1.1, -1.5);
       room.add(mon);
       this.monitors.push(mon);
+      this.monitorCtxs.push(ctx);
+      this.monitorTexs.push(tex);
     }
 
     // Mesa de trabalho
@@ -946,6 +997,7 @@ export class BaseScene {
       light.target.position.set(14, 0, -5);
       this.group.add(light);
       this.group.add(light.target);
+      this.padLights.push(light);
 
       // Mesh do holofote
       const floodMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, 0.5, 8), steel);
@@ -1226,6 +1278,58 @@ export class BaseScene {
     this._animateFlag(dt);
     this._animateClouds(dt);
     if (this.smokeActive) this._animateSmoke(dt);
+    this._animateFlash(dt);
+    this._animateMonitors(dt);
+    if (this.patrolActive) this._animatePatrol(dt);
+  }
+
+  private _animateFlash(dt: number) {
+    if (this.flashTimer <= 0) return;
+    this.flashTimer -= dt;
+    if (this.flashTimer <= 0) {
+      this.flashTimer = 0;
+      this.dirLight.intensity = 2.5;
+      this.shakeIntensity = Math.max(0, this.shakeIntensity - 0.08);
+    } else {
+      this.dirLight.intensity = 2.5 + (this.flashTimer / 0.5) * 5.5;
+      this.shakeIntensity = Math.max(0, this.shakeIntensity - dt * 0.04);
+    }
+  }
+
+  private _animateMonitors(dt: number) {
+    if (this.monitorCtxs.length === 0) return;
+    this.monitorTimer += dt;
+    if (this.monitorTimer < 0.5) return;
+    this.monitorTimer = 0;
+    const t = performance.now() / 1000;
+    this.monitorCtxs.forEach((ctx, i) => {
+      // Só redesenha waveform (não apaga dados — preserva texto)
+      ctx.fillStyle = '#030c18';
+      ctx.fillRect(0, 60, 256, 100);
+      ctx.strokeStyle = i % 2 === 0 ? '#00d4ff' : '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = 0; x < 256; x++) {
+        const y = 118 + Math.sin(x / 15 + i * 1.2 + t) * 18 + Math.sin(x / 7 + i + t * 1.5) * 8;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      this.monitorTexs[i].needsUpdate = true;
+    });
+  }
+
+  private _animatePatrol(dt: number) {
+    this.patrolTime += dt * 0.25;
+    this.astronauts.forEach((astro, i) => {
+      const angle = this.patrolTime + (i / Math.max(this.astronauts.length, 1)) * Math.PI * 2;
+      const r = 5;
+      astro.group.position.set(
+        Math.cos(angle) * r - 5,
+        0,
+        Math.sin(angle) * r + 15,
+      );
+      astro.group.rotation.y = Math.atan2(-Math.sin(angle), -Math.cos(angle));
+    });
   }
 
   private _animateFlag(dt: number) {
@@ -1287,6 +1391,36 @@ export class BaseScene {
     }
 
     this.setJourneyState('pronto');
+  }
+
+  showReturnState(stats: { name: string; visited: number; missions: number; score: number }) {
+    if (!this.journeyPanel) {
+      this.journeyPanel = new JourneyPanel(new THREE.Vector3(0, 2.5, 10));
+      this.group.add(this.journeyPanel.group);
+      for (const hb of this.journeyPanel.buttonHitboxes) this.hitboxes.push(hb);
+    }
+    this.journeyPanel.renderComplete(stats);
+    this.journeyState = 'concluido';
+    this.patrolActive = true;
+    this._updateMonitors(stats);
+  }
+
+  private _updateMonitors(stats: { visited: number; missions: number; score: number }) {
+    const labels = [`VISITADOS: ${stats.visited}`, `MISSÕES: ${stats.missions}`, `PONTOS: ${stats.score}`];
+    this.monitorCtxs.forEach((ctx, i) => {
+      ctx.fillStyle = '#030c18';
+      ctx.fillRect(0, 0, 256, 160);
+      ctx.strokeStyle = 'rgba(0,212,255,0.08)';
+      for (let x = 0; x < 256; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 160); ctx.stroke(); }
+      for (let y = 0; y < 160; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke(); }
+      ctx.fillStyle = '#00d4ff';
+      ctx.font = '10px Courier New, monospace';
+      ctx.fillText(labels[i % labels.length], 8, 22);
+      ctx.fillStyle = i % 2 === 0 ? '#00d4ff' : '#10b981';
+      ctx.font = 'bold 22px Courier New, monospace';
+      ctx.fillText(String(i < 3 ? [stats.visited, stats.missions, stats.score][i] : '—'), 8, 55);
+      this.monitorTexs[i].needsUpdate = true;
+    });
   }
 
   handlePanelClick(optionIndex: number) {
@@ -1357,6 +1491,7 @@ export class BaseScene {
       case 'contagem':
         this.countdownSecs = 10;
         this.countdownElapsed = 0;
+        this.blinkTimer = 0;
         this.journeyPanel?.renderCountdown(10);
         narrate('contagem');
         this.onCameraRequest?.(new THREE.Vector3(5, 16, 12), new THREE.Vector3(14, 0, -5));
@@ -1364,11 +1499,17 @@ export class BaseScene {
       case 'lancamento':
         this.launchElapsed = 0;
         this.smokeActive = true;
+        this.shakeIntensity = 0.12;
+        this.flashTimer = 0.5;
+        this.dirLight.intensity = 8.0;
+        for (const l of this.padLights) l.intensity = 5.0;
         this.journeyPanel?.renderLaunch();
         narrate('lancamento');
         for (const r of this.rockets) r.launch();
         break;
       case 'concluido':
+        this.shakeIntensity = 0;
+        for (const l of this.padLights) l.intensity = 2.5;
         narrate('transicao');
         setTimeout(() => this.onJourneyComplete?.(), 2500);
         break;
@@ -1385,14 +1526,32 @@ export class BaseScene {
   private tickJourney(dt: number) {
     if (this.journeyState === 'contagem') {
       this.countdownElapsed += dt;
+      // Shake progressivo nos últimos 3 segundos
+      if (this.countdownSecs <= 3) {
+        this.shakeIntensity = 0.03 + (3 - this.countdownSecs) * 0.015;
+      }
+      // Blink dos holofotes durante toda a contagem
+      this.blinkTimer += dt;
+      if (this.blinkTimer >= 0.5) {
+        this.blinkTimer = 0;
+        const on = this.padLights[0]?.intensity > 1;
+        for (const l of this.padLights) l.intensity = on ? 0.6 : 2.5;
+      }
       if (this.countdownElapsed >= 1) {
         this.countdownSecs--;
         this.countdownElapsed = 0;
         this.journeyPanel?.renderCountdown(this.countdownSecs);
-        if (this.countdownSecs <= 0) this.setJourneyState('lancamento');
+        if (this.countdownSecs <= 0) {
+          this.shakeIntensity = 0;
+          this.setJourneyState('lancamento');
+        }
       }
     } else if (this.journeyState === 'lancamento') {
       this.launchElapsed += dt;
+      // Câmera segue o foguete subindo (uma chamada suave a T+2s)
+      if (Math.abs(this.launchElapsed - 2.0) < dt * 1.5) {
+        this.onCameraRequest?.(new THREE.Vector3(8, 22, 18), new THREE.Vector3(14, 28, -5));
+      }
       if (this.launchElapsed >= 4.5) this.setJourneyState('concluido');
     }
   }
