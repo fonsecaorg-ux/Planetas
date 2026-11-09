@@ -103,6 +103,20 @@ export class MoonBase {
     (this.moonHitbox as any).userData = { bodyId: 'moon' };
     this.moonGroup.add(this.moonHitbox);
 
+    // Halo pulsante para ajudar a encontrar a Lua
+    const glowTex = this._buildGlowTexture();
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0.55,
+      toneMapped: false,
+    }));
+    glow.scale.setScalar(MOON_RADIUS * 7);
+    glow.name = 'moonGlow';
+    this.moonGroup.add(glow);
+
     // Bandeira do Brasil (mastro + pano)
     const flag = this._buildFlag();
     // Posicionada no equador da superfície (+X)
@@ -117,6 +131,23 @@ export class MoonBase {
     // Pé na superfície, levemente afastado da bandeira
     astro.group.position.set(MOON_RADIUS + 0.3, 0.0, 0.5);
     astro.group.rotation.y = Math.PI;
+  }
+
+  private _buildGlowTexture(): THREE.Texture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0,   'rgba(220,220,255,0.9)');
+    grad.addColorStop(0.3, 'rgba(180,180,220,0.5)');
+    grad.addColorStop(0.7, 'rgba(120,120,180,0.15)');
+    grad.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
   }
 
   private _buildFlag(): THREE.Group {
@@ -188,6 +219,12 @@ export class MoonBase {
       0,
       Math.sin(angle) * ORBIT_RADIUS,
     );
+
+    // Pulsar halo suavemente
+    const glow = this.moonGroup.getObjectByName('moonGlow') as THREE.Sprite | undefined;
+    if (glow) {
+      (glow.material as THREE.SpriteMaterial).opacity = 0.35 + Math.sin(this.t * 1.4) * 0.18;
+    }
   }
 
   dispose() {

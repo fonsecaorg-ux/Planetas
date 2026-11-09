@@ -228,11 +228,18 @@ export class HUD {
       this.callbacks.onSpeak(body.curiosities.join('. '));
     });
 
-    // Botão "Ver a Terra de perto" aparece só no card da Terra
+    // Botão "Ver a Terra de perto" + "Visitar a Lua" aparecem só no card da Terra
     if (body.id === 'earth') {
       const speakBtn = card.querySelector('#speak-btn');
       if (speakBtn) {
         addEarthLink(speakBtn.parentElement!, { xrRenderer: this.callbacks.xrRenderer as any });
+
+        const moonBtn = document.createElement('button');
+        moonBtn.className = 'btn';
+        moonBtn.style.cssText = 'margin-top:6px;width:100%;background:linear-gradient(135deg,#4a4a6a,#6a6a9a);border:1px solid rgba(200,200,255,0.3);';
+        moonBtn.innerHTML = '🌙 Visitar a Lua';
+        moonBtn.addEventListener('click', () => this.callbacks.onSelectBody('moon'));
+        speakBtn.parentElement!.appendChild(moonBtn);
       }
     }
   }
