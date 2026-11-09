@@ -12,6 +12,7 @@ import { createSolarLight } from '@/core/lighting';
 import { orbitDistance } from '@/utils/scale';
 import { keplerianOrbitPath } from '@/utils/orbits';
 import { PlanetLabel } from '@/core/planetLabel';
+import { MoonBase } from '@/core/moonBase';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -55,6 +56,7 @@ export class HubScene {
   private orbitas: THREE.LineSegments | null = null;
   private orbitasGlow: THREE.LineSegments | null = null;
   private labels: Map<string, PlanetLabel> = new Map();
+  private moonBase: MoonBase | null = null;
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
 
@@ -87,7 +89,11 @@ export class HubScene {
 
     const earth = this.bodies.get('earth');
     if (earth) {
-      // Tripulação — começa na Terra e acompanha o corpo em foco
+      // Lua com bandeira do Brasil (JUAN_GUI7 fica nela)
+      this.moonBase = new MoonBase();
+      earth.group.add(this.moonBase.group);
+
+      // Tripulação
       astronautsData.astronauts.forEach((a, i) => {
         const astro = new Astronaut(a as any, i);
         this.astronauts.push(astro);
@@ -98,6 +104,12 @@ export class HubScene {
           astro.group.add(ring);
         }
       });
+
+      // JUAN_GUI7 (primeiro astronauta) planta a bandeira na Lua
+      const juanAstro = this.astronauts.find(a => a.data.id === 'astro-juan');
+      if (juanAstro) this.moonBase.placeAstronaut(juanAstro);
+
+      // Os demais acompanham o corpo em foco
       this.escortTo(earth);
 
       // Estação espacial (sede do time)
@@ -222,13 +234,15 @@ export class HubScene {
     if (this.station) this.station.group.visible = perto(this.station.group);
   }
 
-  // Reposiciona a tripulação em volta do corpo. No Sol ela fica na Terra
+  // Reposiciona a tripulação em volta do corpo. JUAN_GUI7 fica sempre na Lua.
   private escortTo(body: CelestialBody) {
     const alvo = body.data.type === 'star' ? this.bodies.get('earth') : body;
     if (!alvo) return;
-    this.astronauts.forEach((astro, i) => {
+    // Exclui JUAN_GUI7 — ele está fixo na Lua
+    const terrAstros = this.astronauts.filter(a => a.data.id !== 'astro-juan');
+    terrAstros.forEach((astro, i) => {
       const raio = alvo.radius + ESCOLTA_ALTURA + i * ESCOLTA_ESPACAMENTO;
-      const angulo = (i / Math.max(this.astronauts.length, 1)) * Math.PI * 2;
+      const angulo = (i / Math.max(terrAstros.length, 1)) * Math.PI * 2;
       alvo.group.add(astro.group);
       astro.group.position.set(Math.cos(angulo) * raio, astro.group.position.y, Math.sin(angulo) * raio);
     });
@@ -273,6 +287,7 @@ export class HubScene {
         label.updateScale(cp.distanceTo(_posDetalhe));
       }
     }
+    if (this.moonBase) this.moonBase.update(dt, timeSpeed);
     for (const belt of this.belts) belt.update(dt, timeSpeed);
     for (const t of this.trajectories) t.update(dt, timeSpeed);
     if (cp) this.cortarDetalhesDistantes(cp);
@@ -300,6 +315,7 @@ export class HubScene {
     for (const belt of this.belts) belt.dispose();
     for (const t of this.trajectories) t.dispose();
     this.removerOrbitas();
+    this.moonBase?.dispose();
     for (const l of this.labels.values()) l.dispose();
     this.labels.clear();
   }
