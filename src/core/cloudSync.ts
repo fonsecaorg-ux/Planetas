@@ -107,4 +107,33 @@ export class CloudSync {
       setTimeout(() => this.onStatusChange?.('idle'), 5000);
     }
   }
+
+  getAnonId(): string { return this.anonId; }
+
+  async submitLeaderboard(name: string, score: number): Promise<void> {
+    if (!this.db) return;
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(this.db, 'leaderboard', this.anonId), {
+        name: name.trim() || 'Explorador',
+        score,
+        updatedAt: Date.now(),
+      });
+    } catch (err) {
+      console.warn('[cloudSync] Leaderboard submit falhou:', err);
+    }
+  }
+
+  async getLeaderboard(): Promise<Array<{ id: string; name: string; score: number; updatedAt: number }>> {
+    if (!this.db) return [];
+    try {
+      const { collection, getDocs, query, orderBy, limit } = await import('firebase/firestore');
+      const q = query(collection(this.db, 'leaderboard'), orderBy('score', 'desc'), limit(10));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    } catch (err) {
+      console.warn('[cloudSync] Leaderboard fetch falhou:', err);
+      return [];
+    }
+  }
 }

@@ -13,6 +13,8 @@ export interface HUDCallbacks {
   onCertificate: () => void;
   onCertificateName: (name: string) => void;
   onGrandeMissao: () => void;
+  onGrandeMissaoComplete: (score: number, total: number) => void;
+  onLeaderboard: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
@@ -58,6 +60,7 @@ export class HUD {
           <div class="brand interactive">✦ Explorador do Sistema Solar</div>
           <div class="interactive" style="display:flex;gap:8px;align-items:center;">
             <button class="btn" id="base-btn" style="font-size:0.75rem;padding:4px 8px;">🏢 Base</button>
+            <button class="btn" id="leaderboard-btn" title="Ranking de exploradores" style="font-size:0.75rem;padding:4px 8px;">🏆</button>
             <select id="astro-select" style="padding:4px 8px;border-radius:6px;background:var(--panel);color:var(--fg);border:1px solid var(--panel-border);font-size:0.75rem;">
               <option value="">Explorador</option>
               ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
@@ -120,6 +123,7 @@ export class HUD {
       if (name) this.callbacks.onAstronautSelect(name);
     });
     this.root.querySelector('#base-btn')?.addEventListener('click', () => this.callbacks.onBase());
+    this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => this.callbacks.onLeaderboard());
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
@@ -670,6 +674,7 @@ export class HUD {
     };
 
     const renderResults = () => {
+      this.callbacks.onGrandeMissaoComplete(score, TOTAL);
       const stars = score >= 9 ? 3 : score >= 6 ? 2 : 1;
       const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
       const msgs = ['Continue estudando! Você consegue!', 'Bom trabalho! Continue explorando!', 'Parabéns! Você é um verdadeiro Explorador!'];
@@ -709,6 +714,70 @@ export class HUD {
     dot.textContent = s.text;
     dot.style.color = s.color;
     dot.style.opacity = s.opacity;
+  }
+
+  showLeaderboard(entries: Array<{ id: string; name: string; score: number; updatedAt: number }>, myId: string) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.93);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+
+    const rows = entries.length === 0
+      ? '<div style="opacity:0.6;font-size:0.9rem;text-align:center;padding:24px;">Firebase não configurado.<br>Configure o .env para ver o ranking.</div>'
+      : entries.map((e, i) => {
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
+          const isMe = e.id === myId;
+          const date = e.updatedAt ? new Date(e.updatedAt).toLocaleDateString('pt-BR') : '—';
+          return `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;
+              background:${isMe ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)'};
+              border:1px solid ${isMe ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'};margin-bottom:6px;">
+              <div style="font-size:1.2rem;width:28px;text-align:center;flex-shrink:0;">${medal}</div>
+              <div style="flex:1;font-size:0.88rem;">${e.name}${isMe ? ' <span style="font-size:0.72rem;opacity:0.6;">(você)</span>' : ''}</div>
+              <div style="font-size:0.95rem;font-weight:700;color:#fbbf24;">${e.score} pts</div>
+              <div style="font-size:0.7rem;opacity:0.45;min-width:52px;text-align:right;">${date}</div>
+            </div>`;
+        }).join('');
+
+    overlay.innerHTML = `
+      <div style="max-width:480px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2 style="margin:0;color:#fbbf24;">🏆 Ranking de Exploradores</h2>
+          <button id="lb-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕ Fechar</button>
+        </div>
+        <div>${rows}</div>
+        ${entries.length > 0 ? '<div style="font-size:0.72rem;opacity:0.45;text-align:center;margin-top:10px;">Pontuação = missões corretas em todos os planetas</div>' : ''}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#lb-close')?.addEventListener('click', () => overlay.remove());
+  }
+
+  showNarrativeBubble(astronautName: string, color: string, text: string) {
+    document.getElementById('narrative-bubble')?.remove();
+    if (!document.getElementById('narrative-bubble-style')) {
+      const s = document.createElement('style');
+      s.id = 'narrative-bubble-style';
+      s.textContent = '@keyframes fadeInBub{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}';
+      document.head.appendChild(s);
+    }
+    const bubble = document.createElement('div');
+    bubble.id = 'narrative-bubble';
+    bubble.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:998;display:flex;align-items:flex-start;gap:10px;background:rgba(8,13,26,0.92);border:1px solid rgba(255,255,255,0.14);border-radius:14px;padding:11px 14px 11px 14px;max-width:380px;min-width:240px;animation:fadeInBub 0.4s ease;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+    bubble.innerHTML = `
+      <div style="width:32px;height:32px;border-radius:50%;background:${color};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem;margin-top:1px;">👨‍🚀</div>
+      <div style="flex:1;">
+        <div style="font-size:0.72rem;color:${color};font-weight:700;margin-bottom:3px;letter-spacing:0.5px;">${astronautName}</div>
+        <div style="font-size:0.8rem;line-height:1.45;opacity:0.92;">${text}</div>
+      </div>
+      <button id="nb-close" style="background:none;border:none;color:rgba(255,255,255,0.35);cursor:pointer;font-size:1rem;padding:0 0 0 4px;flex-shrink:0;align-self:flex-start;line-height:1;">✕</button>
+    `;
+    document.body.appendChild(bubble);
+    bubble.querySelector('#nb-close')?.addEventListener('click', () => bubble.remove());
+    setTimeout(() => {
+      if (!bubble.isConnected) return;
+      bubble.style.transition = 'opacity 0.6s';
+      bubble.style.opacity = '0';
+      setTimeout(() => bubble.remove(), 650);
+    }, 5500);
   }
 
   updateProgressPill() {

@@ -1,0 +1,14 @@
+{
+  "sun":     { "astronaut": "JUAN_GUI7", "color": "#7dd3fc", "text": "Que calor! O Sol tem 15 milhões de graus no núcleo. É nossa estrela-mãe — a fonte de toda a energia do sistema solar!" },
+  "mercury": { "astronaut": "KEZIA",    "color": "#a78bfa", "text": "Sem atmosfera, Mercúrio varia 600°C entre dia e noite. Um planeta de extremos absolutos!" },
+  "venus":   { "astronaut": "KEZIA",    "color": "#a78bfa", "text": "Vênus é uma estufa gigante! Com 464°C e CO₂ puro, é o planeta mais hostil do sistema — mais quente que Mercúrio!" },
+  "earth":   { "astronaut": "JUAN_GUI7","color": "#7dd3fc", "text": "Nossa casa azul! 71% de oceanos e campo magnético que nos protege. É o único planeta com vida confirmada no universo!" },
+  "mars":    { "astronaut": "KEZIA",    "color": "#a78bfa", "text": "O Planeta Vermelho! O Monte Olimpo tem 27 km de altura — 3 vezes o Everest. Um dia a humanidade vai colonizar Marte!" },
+  "jupiter": { "astronaut": "NINO",     "color": "#fbbf24", "text": "Olha esse gigante! Cabem 1.300 Terras dentro de Júpiter. A Grande Mancha Vermelha é uma tempestade que dura há 300 anos!" },
+  "saturn":  { "astronaut": "NINO",     "color": "#fbbf24", "text": "Os anéis de Saturno são feitos de bilhões de pedaços de gelo e rocha. Saturno é tão leve que flutuaria na água!" },
+  "uranus":  { "astronaut": "BUH",      "color": "#10b981", "text": "Urano gira completamente de lado! Deve ter sofrido um impacto gigantesco no passado. Explorar assim é bem diferente!" },
+  "neptune": { "astronaut": "BUH",      "color": "#10b981", "text": "Netuno é o mais distante! Ventos de 2.100 km/h — os mais velozes do sistema solar. Estamos muito longe de casa!" },
+  "pluto":   { "astronaut": "BUH",      "color": "#10b981", "text": "Plutão pode ser anão, mas tem coração! Há uma planície em formato de coração na sua superfície. Fofo demais!" },
+  "ceres":   { "astronaut": "NINO",     "color": "#fbbf24", "text": "Ceres reina no cinturão de asteroides! A sonda Dawn encontrou manchas de sal — pode ter tido oceano no passado." },
+  "moon":    { "astronaut": "JUAN_GUI7","color": "#7dd3fc", "text": "A Lua! Minha missão mais emocionante. Plantei a Bandeira do Brasil aqui e nunca vou esquecer esse momento histórico!" }
+}

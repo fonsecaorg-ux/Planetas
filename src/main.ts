@@ -21,6 +21,7 @@ import rocketsData from '@/data/rockets.json';
 import { AudioEngine } from '@/core/audio';
 import { CloudSync } from '@/core/cloudSync';
 import astronautsData from '@/data/astronauts.json';
+import narrativeLines from '@/data/narrativeLines.json';
 
 // Vista geral de cada modo, olhando para o Sol. No real a Terra está a
 // ~23 mil unidades do Sol — a vista mostra o sistema interno como pontos
@@ -113,6 +114,12 @@ if (DEBUG) {
   (window as any).__explorador = { engine, hub, starfield, THREE };
 }
 
+function getMissionScore(): number {
+  return Object.values(store.get().completedMissions).reduce(
+    (sum, m) => sum + (m.easy?.correct ? 1 : 0) + (m.medium?.correct ? 1 : 0), 0,
+  );
+}
+
 // HUD
 const hud = new HUD(uiRoot, {
   onSelectBody: (id) => selectBody(id),
@@ -120,6 +127,8 @@ const hud = new HUD(uiRoot, {
   onTimeSpeed: (v) => { timeSpeed = v; store.setTimeSpeed(v); },
   onMissionAnswer: (bodyId, diff, correct) => {
     store.recordMission(bodyId, diff, correct);
+    const name = store.get().certificateName || 'Explorador';
+    cloudSync.submitLeaderboard(name, getMissionScore());
   },
   onDifficulty: () => {},
   onCertificate: () => showCertificate(),
@@ -127,6 +136,14 @@ const hud = new HUD(uiRoot, {
   onGrandeMissao: () => {
     audio.grandeMissao();
     hud.showGrandeMissao(buildGrandeMissaoQuestions());
+  },
+  onGrandeMissaoComplete: (_score, _total) => {
+    const name = store.get().certificateName || 'Explorador';
+    cloudSync.submitLeaderboard(name, getMissionScore());
+  },
+  onLeaderboard: async () => {
+    const entries = await cloudSync.getLeaderboard();
+    hud.showLeaderboard(entries, cloudSync.getAnonId());
   },
   onAstronautSelect: (name) => {
     store.setCertificate(name);
@@ -182,6 +199,11 @@ if (!store.get().onboardingDone) {
     }, 400);
   });
 }
+
+// Narrativa de abertura — Modo História
+setTimeout(() => {
+  hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'Bem-vindo ao Sistema Solar! Sou JUAN_GUI7, seu comandante. Clique nos planetas para começar nossa exploração!');
+}, 3800);
 
 // XR
 const xr = new XRManager({
@@ -429,7 +451,11 @@ function selectBody(id: string) {
     const moonPos = new THREE.Vector3();
     hub.moonBase!.moonGroup.getWorldPosition(moonPos);
     audio.transition();
-    viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => showMoonPanel());
+    viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
+      showMoonPanel();
+      const moonLine = (narrativeLines as Record<string, { astronaut: string; color: string; text: string }>)['moon'];
+      if (moonLine) hud.showNarrativeBubble(moonLine.astronaut, moonLine.color, moonLine.text);
+    });
     return;
   }
   if (id.startsWith('astronaut:')) {
@@ -495,6 +521,8 @@ function selectBody(id: string) {
     currentScene = 'planet';
     selectedBodyId = id;
     audio.arrival(bodyData.type);
+    const line = (narrativeLines as Record<string, { astronaut: string; color: string; text: string }>)[id];
+    if (line) hud.showNarrativeBubble(line.astronaut, line.color, line.text);
     hud.showPlanet(bodyData);
     atualizarIndicadorEscala(bodyData);
   });
