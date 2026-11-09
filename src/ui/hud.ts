@@ -17,6 +17,9 @@ export interface HUDCallbacks {
   onLeaderboard: () => void;
   onBadges: () => void;
   onDailyChallenge: () => void;
+  onProgressMap: () => void;
+  onComparePlanet: (currentBodyId: string) => void;
+  onProfile: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
@@ -65,6 +68,8 @@ export class HUD {
             <button class="btn" id="leaderboard-btn" title="Ranking de exploradores" style="font-size:0.75rem;padding:4px 8px;">🏆</button>
             <button class="btn" id="badges-btn" title="Conquistas" style="font-size:0.75rem;padding:4px 8px;">🏅</button>
             <button class="btn" id="daily-btn" title="Desafio do dia" style="font-size:0.75rem;padding:4px 8px;">📅</button>
+            <button class="btn" id="map-btn" title="Mapa de progresso" style="font-size:0.75rem;padding:4px 8px;">🗺️</button>
+            <button class="btn" id="profile-btn" title="Perfil do explorador" style="font-size:0.75rem;padding:4px 8px;">👤</button>
             <select id="astro-select" style="padding:4px 8px;border-radius:6px;background:var(--panel);color:var(--fg);border:1px solid var(--panel-border);font-size:0.75rem;">
               <option value="">Explorador</option>
               ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
@@ -130,6 +135,8 @@ export class HUD {
     this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => this.callbacks.onLeaderboard());
     this.root.querySelector('#badges-btn')?.addEventListener('click', () => this.callbacks.onBadges());
     this.root.querySelector('#daily-btn')?.addEventListener('click', () => this.callbacks.onDailyChallenge());
+    this.root.querySelector('#map-btn')?.addEventListener('click', () => this.callbacks.onProgressMap());
+    this.root.querySelector('#profile-btn')?.addEventListener('click', () => this.callbacks.onProfile());
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
@@ -196,14 +203,16 @@ export class HUD {
         <div id="mission-feedback" style="margin-top:6px;font-size:0.8rem;min-height:20px;"></div>
       </div>
 
-      <div style="margin-top:10px;">
-        <button class="btn" id="cert-btn" style="width:100%;">📜 Meu Certificado</button>
+      <div style="margin-top:10px;display:flex;gap:6px;">
+        <button class="btn" id="cert-btn" style="flex:1;">📜 Certificado</button>
+        <button class="btn" id="compare-btn" title="Comparar com outro planeta" style="padding:6px 10px;">⚖️ Comparar</button>
       </div>
     `;
 
     card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
     card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
     card.querySelector('#cert-btn')?.addEventListener('click', () => this.callbacks.onCertificate());
+    card.querySelector('#compare-btn')?.addEventListener('click', () => this.callbacks.onComparePlanet(body.id));
 
     card.querySelectorAll('[data-diff]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -851,6 +860,158 @@ export class HUD {
         setTimeout(() => renderResult(newState), 1800);
       });
     });
+  }
+
+  showProgressMap(bodies: BodyData[], state: ProgressState) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;overflow-y:auto;';
+    const relevant = bodies.filter((b) => b.type !== 'belt');
+    const total = relevant.length;
+    const visitedSet = new Set(state.visited);
+    const visitedCount = relevant.filter((b) => visitedSet.has(b.id)).length;
+    const rows = relevant.map((b) => {
+      const v = visitedSet.has(b.id);
+      const rec = state.completedMissions[b.id];
+      const easy   = rec?.easy?.correct   ? '✅' : (rec?.easy   ? '❌' : '○');
+      const medium = rec?.medium?.correct ? '✅' : (rec?.medium ? '❌' : '○');
+      const typeColors: Record<string, string> = { star: '#fbbf24', planet: '#6ab0ff', dwarf: '#a0a0b0', exoplanet: '#c084fc', moon: '#d0d0d0' };
+      const dot = typeColors[b.type] ?? '#888';
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
+          background:${v ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'};
+          border:1px solid ${v ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'};margin-bottom:5px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0;"></div>
+          <div style="flex:1;font-size:0.88rem;font-weight:${v ? '700' : '400'};opacity:${v ? '1' : '0.45'};">${b.name}</div>
+          <div style="font-size:0.8rem;color:#9ca3af;min-width:52px;text-align:right;">${v ? '👁️ visitado' : '—'}</div>
+          <div style="font-size:0.8rem;min-width:70px;text-align:right;">Fácil ${easy}</div>
+          <div style="font-size:0.8rem;min-width:72px;text-align:right;">Médio ${medium}</div>
+        </div>`;
+    }).join('');
+    overlay.innerHTML = `
+      <div style="max-width:580px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h2 style="margin:0;color:#6ab0ff;">🗺️ Mapa de Progresso</h2>
+          <span style="font-size:0.8rem;opacity:0.5;">${visitedCount}/${total} corpos visitados</span>
+          <button id="pm-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕ Fechar</button>
+        </div>
+        <div>${rows}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#pm-close')?.addEventListener('click', () => overlay.remove());
+  }
+
+  showComparePicker(allBodies: BodyData[], currentBody: BodyData) {
+    document.getElementById('compare-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'compare-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    const pickable = allBodies.filter((b) => b.type !== 'belt' && b.id !== currentBody.id);
+    overlay.innerHTML = `
+      <div style="max-width:520px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h2 style="margin:0;color:#6ab0ff;">⚖️ Comparar — ${currentBody.name}</h2>
+          <button id="cp-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕</button>
+        </div>
+        <p style="font-size:0.85rem;opacity:0.6;margin:0 0 12px;">Escolha um corpo para comparar com <b>${currentBody.name}</b>:</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;" id="cp-grid">
+          ${pickable.map((b) => `<button class="cp-pick" data-id="${b.id}" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#e8eef7;font-size:0.85rem;cursor:pointer;text-align:left;">
+            <span style="display:block;width:10px;height:10px;border-radius:50%;background:${b.color};margin-bottom:4px;"></span>${b.name}</button>`).join('')}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#cp-close')?.addEventListener('click', () => overlay.remove());
+    overlay.querySelectorAll('.cp-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const otherId = (btn as HTMLElement).dataset.id!;
+        const other = allBodies.find((b) => b.id === otherId)!;
+        overlay.remove();
+        this.showComparison(currentBody, other);
+      });
+    });
+  }
+
+  private showComparison(a: BodyData, b: BodyData) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.96);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;overflow-y:auto;';
+    const fields: Array<[string, (d: BodyData) => string]> = [
+      ['🔵 Raio (km)', (d) => d.radiusKm.toLocaleString('pt-BR')],
+      ['⚖️ Massa (kg)', (d) => d.massKg],
+      ['🌡️ Temperatura (K)', (d) => String(d.temperatureK)],
+      ['🏋️ Gravidade (g)', (d) => String(d.gravityRelative)],
+      ['🔄 Período orbital (dias)', (d) => d.orbitalPeriodDays > 0 ? String(d.orbitalPeriodDays) : '—'],
+      ['⏱️ Rotação (h)', (d) => String(d.rotationPeriodHours)],
+      ['🌙 Luas', (d) => String(d.moons)],
+      ['📏 Distância (AU)', (d) => String(d.distanceAU)],
+      ['💨 Atmosfera', (d) => d.atmosphere],
+    ];
+    const rows = fields.map(([label, fn]) => {
+      const va = fn(a); const vb = fn(b);
+      return `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+          <td style="padding:7px 10px;font-size:0.82rem;opacity:0.7;">${label}</td>
+          <td style="padding:7px 10px;font-size:0.85rem;text-align:center;color:#6ab0ff;">${va}</td>
+          <td style="padding:7px 10px;font-size:0.85rem;text-align:center;color:#c084fc;">${vb}</td>
+        </tr>`;
+    }).join('');
+    overlay.innerHTML = `
+      <div style="max-width:600px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h2 style="margin:0;">⚖️ Comparação</h2>
+          <button id="cmp-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕ Fechar</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="padding:8px 10px;text-align:left;font-size:0.75rem;opacity:0.5;font-weight:400;">Campo</th>
+              <th style="padding:8px 10px;text-align:center;color:#6ab0ff;">${a.name}</th>
+              <th style="padding:8px 10px;text-align:center;color:#c084fc;">${b.name}</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#cmp-close')?.addEventListener('click', () => overlay.remove());
+  }
+
+  showProfile(state: ProgressState, allBadges: Array<{ id: string; icon: string; name: string }>, earnedIds: string[]) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
+    const missions = state.completedMissions;
+    const totalAnswered = Object.keys(missions).length;
+    const totalCorrect  = Object.values(missions).reduce((s, m) => s + (m.easy?.correct ? 1 : 0) + (m.medium?.correct ? 1 : 0), 0);
+    const visitedCount  = state.visited.length;
+    const name = state.certificateName || 'Explorador';
+    const badgeRow = allBadges.map((b) => {
+      const earned = earnedIds.includes(b.id);
+      return `<span title="${b.name}" style="font-size:1.4rem;opacity:${earned ? '1' : '0.2'};">${b.icon}</span>`;
+    }).join('');
+    overlay.innerHTML = `
+      <div style="max-width:420px;width:100%;color:#e8eef7;text-align:center;">
+        <div style="font-size:3rem;margin-bottom:8px;">👤</div>
+        <h2 style="margin:0 0 4px;color:#fbbf24;">${name}</h2>
+        <div style="font-size:0.78rem;opacity:0.4;margin-bottom:20px;">Explorador do Sistema Solar</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+          ${[
+            ['🌍 Corpos visitados', visitedCount],
+            ['🎯 Missões respondidas', totalAnswered],
+            ['✅ Respostas corretas', totalCorrect],
+            ['🏅 Conquistas', `${earnedIds.length}/${allBadges.length}`],
+          ].map(([label, val]) => `
+            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;">
+              <div style="font-size:1.3rem;font-weight:700;color:#6ab0ff;">${val}</div>
+              <div style="font-size:0.72rem;opacity:0.6;margin-top:4px;">${label}</div>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin-bottom:20px;">${badgeRow}</div>
+        <button id="pf-close" style="padding:8px 24px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;">Fechar</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#pf-close')?.addEventListener('click', () => overlay.remove());
   }
 
   showLeaderboard(entries: Array<{ id: string; name: string; score: number; updatedAt: number }>, myId: string) {

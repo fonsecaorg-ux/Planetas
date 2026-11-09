@@ -213,6 +213,16 @@ const hud = new HUD(uiRoot, {
   onBadges: () => {
     hud.showBadges(BADGES, store.get().earnedBadges ?? []);
   },
+  onProgressMap: () => {
+    hud.showProgressMap(data.bodies, store.get());
+  },
+  onComparePlanet: (currentBodyId) => {
+    const current = data.bodies.find((b) => b.id === currentBodyId);
+    if (current) hud.showComparePicker(data.bodies, current);
+  },
+  onProfile: () => {
+    hud.showProfile(store.get(), BADGES, store.get().earnedBadges ?? []);
+  },
   onDailyChallenge: () => {
     const state = getDailyState();
     hud.setDailyStreak(state.streak);
