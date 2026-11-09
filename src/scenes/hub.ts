@@ -11,6 +11,7 @@ import rocketsData from '@/data/rockets.json';
 import { createSolarLight } from '@/core/lighting';
 import { orbitDistance } from '@/utils/scale';
 import { keplerianOrbitPath } from '@/utils/orbits';
+import { PlanetLabel } from '@/core/planetLabel';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -52,6 +53,8 @@ export class HubScene {
   private trajectoryPoints: TrajectoryPoint[][] = [];
   // Todas as órbitas num único LineSegments: uma draw call em vez de uma por planeta
   private orbitas: THREE.LineSegments | null = null;
+  private orbitasGlow: THREE.LineSegments | null = null;
+  private labels: Map<string, PlanetLabel> = new Map();
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
 
@@ -74,6 +77,11 @@ export class HubScene {
       const body = new CelestialBody({ data: b, scaleMode: opts.scaleMode, sunPosition: this.sunPosition });
       this.bodies.set(b.id, body);
       this.group.add(body.orbitGroup);
+
+      // Label 3D flutuando acima de cada corpo
+      const label = new PlanetLabel(b);
+      body.group.add(label.sprite);
+      this.labels.set(b.id, label);
     }
     this.criarOrbitas(opts.data.bodies, opts.scaleMode);
 
@@ -124,19 +132,23 @@ export class HubScene {
     this.removerOrbitas();
     const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet');
 
-    // Conta pares (segmentos de linha): 2 pontos por segmento, 3 floats por ponto
+    // Zona interna (≤ Marte) e zona externa — cores distintas
+    const INNER_IDS = new Set(['mercury', 'venus', 'earth', 'mars']);
+    const COLOR_INNER = 0x00aaff;  // azul-ciano
+    const COLOR_OUTER = 0x9966ff;  // lilás
+
     const totalPairs = planets.length * ORBITA_SEGMENTOS;
-    const pos = new Float32Array(totalPairs * 6);
+    const posArr = new Float32Array(totalPairs * 6);
+    // Cor por vértice (R,G,B) para misturar inner/outer numa única geometria
+    const colArr = new Float32Array(totalPairs * 6);
     let k = 0;
 
     for (const b of planets) {
       let pts: { x: number; y: number; z: number }[];
 
       if (b.orbitalElements) {
-        // Elipse real com inclinação kepleriana
         pts = keplerianOrbitPath(b.orbitalElements, scaleMode, ORBITA_SEGMENTOS);
       } else {
-        // Fallback: círculo no plano eclíptico
         const dist = orbitDistance(b.distanceKm, scaleMode);
         pts = Array.from({ length: ORBITA_SEGMENTOS + 1 }, (_, i) => {
           const a = (i / ORBITA_SEGMENTOS) * Math.PI * 2;
@@ -144,27 +156,60 @@ export class HubScene {
         });
       }
 
+      const hex = INNER_IDS.has(b.id) ? COLOR_INNER : COLOR_OUTER;
+      const cr = ((hex >> 16) & 255) / 255;
+      const cg = ((hex >> 8)  & 255) / 255;
+      const cb = ( hex        & 255) / 255;
+
       for (let i = 0; i < ORBITA_SEGMENTOS; i++) {
         const p0 = pts[i];
         const p1 = pts[i + 1] ?? pts[0];
-        pos[k++] = p0.x; pos[k++] = p0.y; pos[k++] = p0.z;
-        pos[k++] = p1.x; pos[k++] = p1.y; pos[k++] = p1.z;
+        posArr[k]   = p0.x; posArr[k+1] = p0.y; posArr[k+2] = p0.z;
+        posArr[k+3] = p1.x; posArr[k+4] = p1.y; posArr[k+5] = p1.z;
+        colArr[k]   = cr; colArr[k+1] = cg; colArr[k+2] = cb;
+        colArr[k+3] = cr; colArr[k+4] = cg; colArr[k+5] = cb;
+        k += 6;
       }
     }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.LineBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.35 });
-    this.orbitas = new THREE.LineSegments(geo, mat);
+    const makeGeo = () => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+      return g;
+    };
+
+    // Linha base: sólida, opacidade média
+    const matBase = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    });
+    this.orbitas = new THREE.LineSegments(makeGeo(), matBase);
     this.group.add(this.orbitas);
+
+    // Camada de glow: mesma geometria, blending aditivo, bem transparente
+    const matGlow = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.14,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.orbitasGlow = new THREE.LineSegments(makeGeo(), matGlow);
+    this.group.add(this.orbitasGlow);
   }
 
   private removerOrbitas() {
-    if (!this.orbitas) return;
-    this.group.remove(this.orbitas);
-    this.orbitas.geometry.dispose();
-    (this.orbitas.material as THREE.Material).dispose();
+    for (const ls of [this.orbitas, this.orbitasGlow]) {
+      if (!ls) continue;
+      this.group.remove(ls);
+      ls.geometry.dispose();
+      (ls.material as THREE.Material).dispose();
+    }
     this.orbitas = null;
+    this.orbitasGlow = null;
   }
 
   // Esconde os modelos de detalhe longe demais para ocupar pixels. O
@@ -218,6 +263,16 @@ export class HubScene {
     for (const b of this.bodies.values()) {
       b.update(dt, timeSpeed, cp);
     }
+    // Escala das labels mantida constante na tela
+    if (cp) {
+      for (const [id, label] of this.labels) {
+        const body = this.bodies.get(id);
+        if (!body) continue;
+        body.group.getWorldPosition(_posDetalhe);
+        label.sprite.getWorldPosition(_posDetalhe);
+        label.updateScale(cp.distanceTo(_posDetalhe));
+      }
+    }
     for (const belt of this.belts) belt.update(dt, timeSpeed);
     for (const t of this.trajectories) t.update(dt, timeSpeed);
     if (cp) this.cortarDetalhesDistantes(cp);
@@ -245,5 +300,7 @@ export class HubScene {
     for (const belt of this.belts) belt.dispose();
     for (const t of this.trajectories) t.dispose();
     this.removerOrbitas();
+    for (const l of this.labels.values()) l.dispose();
+    this.labels.clear();
   }
 }

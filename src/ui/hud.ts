@@ -131,37 +131,56 @@ export class HUD {
     const card = this.root.querySelector('#planet-card') as HTMLElement;
     card.classList.add('visible');
     const satList = body.satellites?.map((s) => s.name).join(', ') || '—';
+    const typeMap: Record<string, string> = { star: 'Estrela', planet: 'Planeta', dwarf: 'Planeta anão', belt: 'Cinturão', moon: 'Lua', exoplanet: 'Exoplaneta' };
+    const typeLabel = typeMap[body.type] ?? 'Corpo celeste';
+    const bodyEmoji = body.type === 'star' ? '☀️' : body.type === 'dwarf' ? '🪨' : '🪐';
+    const prog = this.progress.completedMissions[body.id];
+    const easyDone  = prog?.easy?.correct  ? '✓' : '○';
+    const medDone   = prog?.medium?.correct ? '✓' : '○';
+
     card.innerHTML = `
-      ${this.cardHeader(body.name)}
-      <div class="subtitle">${body.type === 'dwarf' ? 'Planeta anão' : body.type === 'star' ? 'Estrela' : body.type === 'belt' ? 'Cinturão' : 'Planeta'}</div>
-      <dl class="data-grid">
-        <dt>Raio</dt><dd>${body.radiusKm.toLocaleString('pt-BR')} km</dd>
-        <dt>Massa</dt><dd>${body.massKg} kg</dd>
-        <dt>Distância do Sol</dt><dd>${body.distanceAU} UA (${body.distanceKm.toLocaleString('pt-BR')} km)</dd>
-        <dt>Período orbital</dt><dd>${body.orbitalPeriodDays} dias</dd>
-        <dt>Rotação</dt><dd>${body.rotationPeriodHours} h</dd>
-        <dt>Temperatura</dt><dd>${body.temperatureK} K</dd>
-        <dt>Gravidade (rel. Terra)</dt><dd>${body.gravityRelative}g</dd>
-        <dt>Luas</dt><dd>${body.moons}</dd>
-        <dt>Atmosfera</dt><dd>${body.atmosphere}</dd>
-        <dt>Satélites</dt><dd>${satList}</dd>
-      </dl>
-      <div>
-        ${body.curiosities.map((c) => `<p style="font-size:0.8rem;opacity:0.8;margin:4px 0;">• ${c}</p>`).join('')}
+      ${this.cardHeader(`${bodyEmoji} ${body.name}`)}
+
+      <!-- Faixa colorida com tipo e distância -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
+        <span style="background:${body.color};color:#000;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;">${typeLabel.toUpperCase()}</span>
+        <span style="font-size:0.75rem;opacity:0.7;">${body.distanceAU} UA · ${(body.distanceKm / 1e6).toFixed(1)} M km</span>
+        <span style="margin-left:auto;font-size:0.75rem;opacity:0.6;">Missões: ${easyDone} Fácil &nbsp; ${medDone} Médio</span>
       </div>
-      <button class="btn" id="speak-btn" style="margin-top:8px;">🔊 Ouvir curiosidades</button>
-      <div class="mission">
-        <div class="difficulty">
-          <button data-diff="easy" class="${this.difficulty === 'easy' ? 'active' : ''}">Fácil</button>
-          <button data-diff="medium" class="${this.difficulty === 'medium' ? 'active' : ''}">Médio</button>
+
+      <dl class="data-grid">
+        <dt>🔵 Raio</dt><dd>${body.radiusKm.toLocaleString('pt-BR')} km</dd>
+        <dt>⚖️ Massa</dt><dd>${body.massKg} kg</dd>
+        <dt>🌡️ Temperatura</dt><dd>${body.temperatureK} K</dd>
+        <dt>🏋️ Gravidade</dt><dd>${body.gravityRelative}g</dd>
+        <dt>🔄 Período orbital</dt><dd>${body.orbitalPeriodDays > 0 ? body.orbitalPeriodDays + ' dias' : '—'}</dd>
+        <dt>⏱️ Rotação</dt><dd>${body.rotationPeriodHours} h</dd>
+        <dt>🌙 Luas</dt><dd>${body.moons}</dd>
+        <dt>💨 Atmosfera</dt><dd>${body.atmosphere}</dd>
+        ${satList !== '—' ? `<dt>🛰️ Satélites</dt><dd>${satList}</dd>` : ''}
+      </dl>
+
+      <div style="margin:8px 0;">
+        ${body.curiosities.map((c) => `<p style="font-size:0.78rem;opacity:0.8;margin:4px 0;line-height:1.45;">• ${c}</p>`).join('')}
+      </div>
+
+      <button class="btn" id="speak-btn" style="margin-top:4px;width:100%;">🔊 Ouvir curiosidades</button>
+
+      <div class="mission" style="margin-top:10px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-weight:700;font-size:0.85rem;">🎯 Missão</span>
+          <div class="difficulty" style="margin-left:auto;">
+            <button data-diff="easy"   class="${this.difficulty === 'easy'   ? 'active' : ''}">${easyDone} Fácil</button>
+            <button data-diff="medium" class="${this.difficulty === 'medium' ? 'active' : ''}">${medDone} Médio</button>
+          </div>
         </div>
-        <h3>🎯 Missão</h3>
         <div class="q" id="mission-q"></div>
         <div class="opts" id="mission-opts"></div>
-        <div id="mission-feedback" style="margin-top:8px;font-size:0.8rem;"></div>
+        <div id="mission-feedback" style="margin-top:6px;font-size:0.8rem;min-height:20px;"></div>
       </div>
-      <div style="margin-top:12px;">
-        <button class="btn" id="cert-btn">📜 Certificado</button>
+
+      <div style="margin-top:10px;">
+        <button class="btn" id="cert-btn" style="width:100%;">📜 Meu Certificado</button>
       </div>
     `;
 
@@ -363,6 +382,13 @@ export class HUD {
     const missions = Object.values(this.progress.completedMissions).reduce((sum, m) => {
       return sum + (m.easy?.correct ? 1 : 0) + (m.medium?.correct ? 1 : 0);
     }, 0);
-    el.textContent = `Visitados ${visited}/${this.bodyCount} · Missões ${missions}`;
+    const pct = this.bodyCount > 0 ? Math.round((visited / this.bodyCount) * 100) : 0;
+    el.innerHTML = `
+      <span style="font-size:0.7rem;opacity:0.75;">🔭 ${visited}/${this.bodyCount}</span>
+      <span style="display:inline-block;width:48px;height:5px;background:rgba(255,255,255,0.12);border-radius:3px;vertical-align:middle;margin:0 4px;overflow:hidden;">
+        <span style="display:block;width:${pct}%;height:100%;background:#00d4ff;border-radius:3px;transition:width 0.4s;"></span>
+      </span>
+      <span style="font-size:0.7rem;opacity:0.75;">🎯 ${missions}</span>
+    `;
   }
 }
