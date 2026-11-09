@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { AstronautData, RocketData, MissionQuestion } from '@/data/types';
 import { Astronaut } from '@/core/astronaut';
 import { Rocket } from '@/core/rocket';
@@ -7,7 +6,6 @@ import { createDaylight } from '@/core/lighting';
 import { disposeObject3D } from '@/core/engine';
 import { narrate } from '@/core/narration';
 
-const _gltf = new GLTFLoader();
 
 export type JourneyState = 'idle' | 'pronto' | 'treinamento' | 'resultado' | 'contagem' | 'lancamento' | 'concluido';
 
@@ -736,8 +734,10 @@ export class BaseScene {
     this._buildSky();
     this._buildGround();
     this._buildControlBuilding();
+    this._buildVAB();
     this._buildLaunchComplex(rocketData);
-    this._buildVegetation();
+    this._buildFuelStorage();
+    this._buildWaterTower();
     this._buildFlagpole();
     this._buildClouds();
     this._buildSmoke();
@@ -776,30 +776,49 @@ export class BaseScene {
   }
 
   private _buildGround() {
-    // Grama principal
+    // Chão base: grama / solo seco (zona industrial não tem grama)
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ color: 0x2d5a1b, roughness: 0.95 }),
+      new THREE.PlaneGeometry(400, 400),
+      new THREE.MeshStandardMaterial({ color: 0x8a8070, roughness: 0.98, metalness: 0 }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.group.add(ground);
 
-    // Pista de asfalto (central)
-    this.group.add(this._plane(6, 100, 0x1a1a1a, 0, 0.01, 0, 0.9));
+    // Grande plataforma de concreto central
+    this.group.add(this._plane(80, 60, 0x6a6660, 5, 0.01, -10, 0.85));
 
-    // Plataformas de concreto
-    this.group.add(this._plane(30, 20, 0x4a4a4a, 8, 0.02, -8, 0.8)); // área do lançamento
-    this.group.add(this._plane(20, 12, 0x3c3c3c, -10, 0.02, -15, 0.8)); // estacionamento
+    // Plataforma do pad de lançamento (mais clara — concreto novo)
+    this.group.add(this._plane(28, 28, 0x7a7672, 14, 0.02, -5, 0.80));
 
-    // Faixas na pista
-    const stripMat = new THREE.MeshStandardMaterial({ color: 0xf0e030, roughness: 0.8 });
-    for (let z = -40; z < 40; z += 10) {
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 5), stripMat);
-      strip.rotation.x = -Math.PI / 2;
-      strip.position.set(0, 0.03, z);
-      this.group.add(strip);
+    // Taxiway (via de acesso): strada principal sul-norte
+    this.group.add(this._plane(8, 120, 0x3a3836, 0, 0.015, 0, 0.9));
+
+    // Acesso lateral ao pad
+    this.group.add(this._plane(30, 7, 0x3a3836, 7, 0.015, 8, 0.9));
+
+    // Faixas de segurança amarelas na beira do pad
+    const warnMat = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.75 });
+    for (let i = 0; i < 12; i++) {
+      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3.5), warnMat);
+      stripe.rotation.x = -Math.PI / 2;
+      const angle = (i / 12) * Math.PI * 2;
+      stripe.position.set(14 + Math.cos(angle) * 15, 0.03, -5 + Math.sin(angle) * 15);
+      stripe.rotation.z = angle;
+      this.group.add(stripe);
     }
+
+    // Linhas centrais da via de acesso
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+    for (let z = -50; z < 50; z += 8) {
+      const line = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 4), lineMat);
+      line.rotation.x = -Math.PI / 2;
+      line.position.set(0, 0.025, z);
+      this.group.add(line);
+    }
+
+    // Calçadas ao redor do prédio de controle
+    this.group.add(this._plane(22, 20, 0x5e5a56, -11, 0.012, -16, 0.78));
   }
 
   private _plane(w: number, d: number, color: number, x: number, y: number, z: number, rough: number): THREE.Mesh {
@@ -817,76 +836,99 @@ export class BaseScene {
     const g = new THREE.Group();
     g.position.set(-11, 0, -16);
 
-    const concreteMat = new THREE.MeshStandardMaterial({ color: 0xd4cfc4, roughness: 0.75 });
-    const glassMat    = new THREE.MeshStandardMaterial({ color: 0x2a4a7f, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.85 });
-    const steelMat    = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.4, metalness: 0.8 });
+    const concMat  = new THREE.MeshStandardMaterial({ color: 0xc8c2b8, roughness: 0.80, metalness: 0 });
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.70, metalness: 0.1 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x1a3a6a, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.72, reflectivity: 0.9 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x7a8898, roughness: 0.35, metalness: 0.85 });
+    const darkMat  = new THREE.MeshStandardMaterial({ color: 0x1c2130, roughness: 0.6, metalness: 0.3 });
 
-    // Corpo principal do prédio
-    const body = new THREE.Mesh(new THREE.BoxGeometry(14, 7, 10), concreteMat);
-    body.position.y = 3.5;
-    body.castShadow = true; body.receiveShadow = true;
-    g.add(body);
+    // Corpo principal — concreto com painéis escuros na parte superior
+    const bodyLow = new THREE.Mesh(new THREE.BoxGeometry(16, 5, 11), concMat);
+    bodyLow.position.y = 2.5; bodyLow.castShadow = true; bodyLow.receiveShadow = true;
+    g.add(bodyLow);
 
-    // Cobertura (recuada)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(14.4, 0.6, 10.4), steelMat);
-    roof.position.y = 7.3;
+    const bodyHigh = new THREE.Mesh(new THREE.BoxGeometry(16, 4, 11), panelMat);
+    bodyHigh.position.y = 7.0; bodyHigh.castShadow = true;
+    g.add(bodyHigh);
+
+    // Cobertura plana com borda metálica
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(16.6, 0.4, 11.6), steelMat);
+    roof.position.y = 9.2;
     g.add(roof);
 
-    // Faixa de janelas — andar térreo
-    for (let i = 0; i < 5; i++) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.4), glassMat);
-      win.position.set(-5 + i * 2.5, 1.8, 5.02);
-      g.add(win);
+    // Fachada de vidro (cortina de vidro) — 3 painéis grandes
+    for (let i = 0; i < 3; i++) {
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.0), glassMat);
+      panel.position.set(-4 + i * 4, 2.5, 5.56);
+      g.add(panel);
     }
-    // Faixa de janelas — 1º andar
-    for (let i = 0; i < 5; i++) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.4), glassMat);
-      win.position.set(-5 + i * 2.5, 4.2, 5.02);
+    // Divisórias metálicas entre painéis de vidro
+    for (const x of [-2.1, 1.9]) {
+      const div = new THREE.Mesh(new THREE.BoxGeometry(0.18, 4.2, 0.12), steelMat);
+      div.position.set(x, 2.5, 5.52);
+      g.add(div);
+    }
+
+    // Faixa de janelas no andar superior
+    for (let i = 0; i < 7; i++) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.8), glassMat);
+      win.position.set(-6 + i * 2, 7.0, 5.52);
       g.add(win);
     }
 
-    // Porta de entrada
-    const door = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 2.8, 0.15),
-      new THREE.MeshStandardMaterial({ color: 0x1a2535, roughness: 0.5 }),
-    );
-    door.position.set(0, 1.4, 5.1);
+    // Entrada: lobby de vidro saliente
+    const lobby = new THREE.Mesh(new THREE.BoxGeometry(4, 3.4, 1.8), glassMat);
+    lobby.position.set(0, 1.7, 6.3);
+    g.add(lobby);
+    // Topo do lobby
+    const lobbyRoof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.2, 2.0), steelMat);
+    lobbyRoof.position.set(0, 3.5, 6.3);
+    g.add(lobbyRoof);
+    // Porta automática
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.08), darkMat);
+    door.position.set(0, 1.3, 7.1);
     g.add(door);
 
-    // Marquise da entrada
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.15, 1.5), steelMat);
-    canopy.position.set(0, 3.2, 5.8);
-    g.add(canopy);
+    // Letreiro LED moderno
+    g.add(this._sign('CONTROLE DE MISSÃO', 0, 9.5, 5.56, 10, 1.1));
 
-    // Colunas
-    for (const x of [-1.6, 1.6]) {
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.2, 8), concreteMat);
-      col.position.set(x, 1.6, 5.75);
-      g.add(col);
+    // Antena array no teto (3 pratos + mastro central)
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 6, 6), steelMat);
+    mast.position.set(5.5, 12.5, -2);
+    g.add(mast);
+    for (let i = 0; i < 3; i++) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 1.2), steelMat);
+      arm.position.set(5.5, 12.5 + i * 1.5, -2);
+      g.add(arm);
+      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), steelMat);
+      dish.rotation.x = -Math.PI / 3 - i * 0.15;
+      dish.position.set(5.5, 12.5 + i * 1.5 + 0.3, -1.4);
+      g.add(dish);
     }
 
-    // Letreiro
-    g.add(this._sign('CONTROLE DE MISSÃO', 0, 7.1, 5.02, 8, 1.2));
+    // Torre de comunicações lateral
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 12, 6), steelMat);
+    tower.position.set(8.5, 6, -3);
+    g.add(tower);
+    for (let y = 4; y <= 12; y += 2) {
+      const rung = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.06), steelMat);
+      rung.position.set(8.5, y, -3);
+      g.add(rung);
+    }
 
-    // Antena + prato de satélite
-    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 5, 6), steelMat);
-    ant.position.set(5, 10, -1);
-    g.add(ant);
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), steelMat);
-    dish.rotation.x = Math.PI / 3;
-    dish.position.set(5, 12.5, -1);
-    g.add(dish);
-
-    // HVAC rooftop
-    for (let i = 0; i < 3; i++) {
-      const hvac = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 1.2), steelMat);
-      hvac.position.set(-4 + i * 4, 8.0, -1);
+    // HVAC no teto
+    for (let i = 0; i < 4; i++) {
+      const hvac = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.5), panelMat);
+      hvac.position.set(-5 + i * 3.5, 9.65, -2);
       g.add(hvac);
+      const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.6, 8), steelMat);
+      vent.position.set(-5 + i * 3.5, 10.2, -2);
+      g.add(vent);
     }
 
     // Hitbox
-    const hb = new THREE.Mesh(new THREE.BoxGeometry(14, 7, 10), new THREE.MeshBasicMaterial({ visible: false }));
-    hb.position.y = 3.5;
+    const hb = new THREE.Mesh(new THREE.BoxGeometry(16, 9.2, 11), new THREE.MeshBasicMaterial({ visible: false }));
+    hb.position.y = 4.6;
     g.add(hb);
     this.hitboxes.push({ mesh: hb, id: 'building' });
 
@@ -954,29 +996,221 @@ export class BaseScene {
     parent.add(room);
   }
 
+  /** Vehicle Assembly Building — estrutura icônica de montagem vertical */
+  private _buildVAB() {
+    const g = new THREE.Group();
+    g.position.set(32, 0, -18);
+
+    const W = 20, H = 38, D = 16;
+    const concMat  = new THREE.MeshStandardMaterial({ color: 0xb0aba2, roughness: 0.82, metalness: 0 });
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x8a9baa, roughness: 0.60, metalness: 0.15 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x6a7a88, roughness: 0.40, metalness: 0.80 });
+
+    // Corpo principal do VAB
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), concMat);
+    body.position.y = H / 2;
+    body.castShadow = true; body.receiveShadow = true;
+    g.add(body);
+
+    // Painéis metálicos laterais (linhas horizontais que definem andares)
+    for (let y = 4; y < H; y += 5) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.35, D + 0.1), panelMat);
+      band.position.y = y;
+      g.add(band);
+    }
+
+    // Porta hangar gigante (frente)
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x2a3545, roughness: 0.5, metalness: 0.3 });
+    const doorH = new THREE.Mesh(new THREE.BoxGeometry(10, 24, 0.5), doorMat);
+    doorH.position.set(0, 12, D / 2 + 0.1);
+    g.add(doorH);
+    // Divisória central da porta
+    const divider = new THREE.Mesh(new THREE.BoxGeometry(0.4, 24, 0.6), steelMat);
+    divider.position.set(0, 12, D / 2 + 0.15);
+    g.add(divider);
+
+    // Cobertura com borda
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 0.8, 1.2, D + 0.8), steelMat);
+    roof.position.y = H + 0.6;
+    g.add(roof);
+
+    // Mastros no topo
+    for (const x of [-8, 0, 8]) {
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 5, 6), steelMat);
+      mast.position.set(x, H + 3, 0);
+      g.add(mast);
+    }
+
+    // Letreiro brasileiro com textura canvas
+    g.add(this._sign('VAB', 0, H * 0.78, D / 2 + 0.3, 7, 2.5));
+    g.add(this._sign('BASE ESPACIAL JUAN_GUI7', 0, H * 0.68, D / 2 + 0.3, 12, 1.2));
+
+    this.group.add(g);
+  }
+
+  /** Tanques de combustível (LOX e RP-1) */
+  private _buildFuelStorage() {
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0xd8d4cc, roughness: 0.30, metalness: 0.65 });
+    const redMat   = new THREE.MeshStandardMaterial({ color: 0xc03030, roughness: 0.35, metalness: 0.5, emissive: 0x200000 });
+    const pipeMat  = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.40, metalness: 0.80 });
+
+    const tanks: [number, number, number, number][] = [
+      [26, 0, 2, 3.5],  // [x, z, radius, height]
+      [29, -1, 2.8, 5],
+      [23, 3, 1.8, 2.8],
+    ];
+
+    for (const [tx, tz, r, h] of tanks) {
+      // Tanque cilíndrico
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), steelMat);
+      tank.position.set(tx, h / 2, tz);
+      tank.castShadow = true;
+      this.group.add(tank);
+      // Topo domo
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), steelMat);
+      dome.position.set(tx, h, tz);
+      this.group.add(dome);
+      // Faixa de identificação vermelha
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.001, r * 1.001, 0.4, 20), redMat);
+      stripe.position.set(tx, h * 0.3, tz);
+      this.group.add(stripe);
+    }
+
+    // Tubulação de conexão entre tanques e pad
+    const pipeSegs: [number, number, number, number, number, number][] = [
+      [26, 0.4, 2, 20, 0.4, 2],
+      [20, 0.4, 2, 20, 0.4, -4],
+    ];
+    for (const [x1, y1, z1, x2, y2, z2] of pipeSegs) {
+      const mid = new THREE.Vector3((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+      const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2);
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, len, 8), pipeMat);
+      pipe.position.copy(mid);
+      pipe.lookAt(x2, y2, z2);
+      pipe.rotateX(Math.PI / 2);
+      this.group.add(pipe);
+    }
+  }
+
+  /** Torre de água para o sistema de supressão de chama */
+  private _buildWaterTower() {
+    const steelMat  = new THREE.MeshStandardMaterial({ color: 0xc0c8d0, roughness: 0.30, metalness: 0.70 });
+    const whiteMat  = new THREE.MeshStandardMaterial({ color: 0xeeeee8, roughness: 0.45, metalness: 0.15 });
+
+    const baseX = 22, baseZ = -15;
+
+    // Pernas da torre (4 pilares em X)
+    for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as [number, number][]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 14, 6), steelMat);
+      leg.position.set(baseX + ox * 1.2, 7, baseZ + oz * 1.2);
+      leg.rotation.z = oz * 0.08;
+      this.group.add(leg);
+      // Travessa horizontal
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.5), steelMat);
+      cross.position.set(baseX + ox * 1.2, 5, baseZ);
+      this.group.add(cross);
+    }
+
+    // Tanque esférico no topo
+    const tank = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 12), whiteMat);
+    tank.position.set(baseX, 16.5, baseZ);
+    tank.castShadow = true;
+    this.group.add(tank);
+    // Faixa vermelha no tanque
+    const band = new THREE.Mesh(new THREE.SphereGeometry(2.42, 16, 4, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.16),
+      new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.4, metalness: 0.3 }));
+    band.position.set(baseX, 16.5, baseZ);
+    this.group.add(band);
+    // Tubo de saída
+    const outlet = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3, 8), steelMat);
+    outlet.position.set(baseX, 13.5, baseZ);
+    this.group.add(outlet);
+  }
+
   private _buildLaunchComplex(_rocketData: RocketData[]) {
-    const steel = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.5, metalness: 0.75 });
-    const conc  = new THREE.MeshStandardMaterial({ color: 0x5a5a5a, roughness: 0.8 });
+    const steel    = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.42, metalness: 0.80 });
+    const conc     = new THREE.MeshStandardMaterial({ color: 0x626058, roughness: 0.88 });
+    const burnConc = new THREE.MeshStandardMaterial({ color: 0x2a2824, roughness: 0.95 }); // concreto queimado
 
-    // Base da plataforma
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.5, 0.5, 24), conc);
-    pad.position.set(14, 0.25, -5);
-    this.group.add(pad);
+    // Pad octagonal (mais detalhado que o cilindro simples)
+    const padBase = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.8, 1.2, 8), conc);
+    padBase.position.set(14, 0.6, -5);
+    padBase.castShadow = true; padBase.receiveShadow = true;
+    this.group.add(padBase);
 
-    // Vala de deflexão de chama (canaleta)
-    const channel = new THREE.Mesh(new THREE.BoxGeometry(3, 0.4, 8), new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 }));
-    channel.position.set(14, -0.1, -1);
-    this.group.add(channel);
+    // Plataforma de topo do pad
+    const padTop = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 0.3, 8), steel);
+    padTop.position.set(14, 1.35, -5);
+    this.group.add(padTop);
 
-    // Torre de serviço principal
+    // 4 pilares de apoio sob o pad
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.5, 8), conc);
+      col.position.set(14 + Math.cos(a) * 4, -0.65, -5 + Math.sin(a) * 4);
+      this.group.add(col);
+    }
+
+    // Vala de deflexão de chama — inclinada, com concreto queimado
+    const flameTrench = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.6, 12), burnConc);
+    flameTrench.position.set(14, -0.3, 2);
+    this.group.add(flameTrench);
+    // Laterais da vala
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.0, 12), conc);
+      wall.position.set(14 + side * 2.5, 0.5, 2);
+      wall.castShadow = true;
+      this.group.add(wall);
+    }
+    // Placa defletora (angled)
+    const deflector = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.3, 6), burnConc);
+    deflector.position.set(14, 0.2, -1.5);
+    deflector.rotation.x = -0.3;
+    this.group.add(deflector);
+
+    // 4 braços hold-down ao redor do pad
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.5, 0.25), steel);
+      arm.position.set(14 + Math.cos(a) * 1.1, 2.5, -5 + Math.sin(a) * 1.1);
+      this.group.add(arm);
+    }
+
+    // Torre de serviço principal (gantry)
     const tower = this._gantryTower(14, -5, steel);
     this.group.add(tower);
 
-    // Veículo de lançamento — construção procedural tipo Falcon 9
+    // Postes de holofote com suporte real
+    for (const [ox, oz] of [[-5, 5], [5, 5], [-5, -15], [5, -15]] as [number, number][]) {
+      // Poste
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 12, 6), steel);
+      pole.position.set(14 + ox, 6, -5 + oz);
+      this.group.add(pole);
+      // Suporte em T no topo
+      const tBar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 0.15), steel);
+      tBar.position.set(14 + ox, 12.1, -5 + oz);
+      this.group.add(tBar);
+      // Holofotes (2 por poste)
+      for (const lx of [-0.9, 0.9]) {
+        const light = new THREE.SpotLight(0xfff8e0, 3.0, 80, Math.PI / 10, 0.3);
+        light.position.set(14 + ox + lx, 12, -5 + oz);
+        light.target.position.set(14, 0, -5);
+        this.group.add(light);
+        this.group.add(light.target);
+        this.padLights.push(light);
+        // Carcaça do holofote
+        const flood = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.26, 0.4, 8), steel);
+        flood.position.set(14 + ox + lx, 12, -5 + oz);
+        flood.rotation.z = Math.sign(oz) > 0 ? Math.PI / 3 : -Math.PI / 3;
+        this.group.add(flood);
+      }
+    }
+
+    // Veículo de lançamento
     this.launchVehicle = this._buildLaunchVehicle();
     this.group.add(this.launchVehicle);
 
-    // Hitbox do foguete para clique
+    // Hitbox do foguete
     const rocketHb = new THREE.Mesh(
       new THREE.CylinderGeometry(1.2, 1.2, 15, 8),
       new THREE.MeshBasicMaterial({ visible: false }),
@@ -986,37 +1220,16 @@ export class BaseScene {
     this.group.add(rocketHb);
     this.hitboxes.push({ mesh: rocketHb, id: 'rocket:launch' });
 
-    // Estrutura modular extra (decorativa) ao lado do launch pad
-    _gltf.load('/models/station_structure.glb', (gltf) => {
-      const model = gltf.scene;
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3(); box.getSize(size);
-      model.scale.setScalar(3.5 / Math.max(size.x, size.y, size.z));
-      const box2 = new THREE.Box3().setFromObject(model);
-      model.position.y -= box2.min.y;
-      model.position.set(22, model.position.y, -5);
-      model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      this.group.add(model);
-    }, undefined, () => {});
-
-    // Holofotes na base
-    for (const [ox, oz] of [[-3, 3], [3, 3], [-3, -13], [3, -13]]) {
-      const light = new THREE.SpotLight(0xfff8e0, 2.5, 60, Math.PI / 8, 0.4);
-      light.position.set(14 + ox, 8, -5 + oz);
-      light.target.position.set(14, 0, -5);
-      this.group.add(light);
-      this.group.add(light.target);
-      this.padLights.push(light);
-
-      // Mesh do holofote
-      const floodMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, 0.5, 8), steel);
-      floodMesh.position.set(14 + ox, 8, -5 + oz);
-      floodMesh.rotation.z = Math.PI / 2.5;
-      this.group.add(floodMesh);
+    // Plataforma de acesso para manutenção (walkway)
+    const walkway = new THREE.Mesh(new THREE.BoxGeometry(8, 0.15, 1.2), steel);
+    walkway.position.set(10, 8, -5);
+    this.group.add(walkway);
+    // Corrimão
+    for (const side of [-0.5, 0.5]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(8, 0.08, 0.06), steel);
+      rail.position.set(10, 8.5, -5 + side);
+      this.group.add(rail);
     }
-
-    // Estacionamento (simplificado — sem GLB para evitar latência)
-    this._buildParkingLot();
   }
 
   /** Veículo de lançamento Falcon-9 style — procedural, escala real para a cena */
@@ -1157,114 +1370,6 @@ export class BaseScene {
     return g;
   }
 
-  private _buildParkingLot() {
-    // 3 modelos diferentes para variedade visual
-    const carModels = [
-      '/models/car_sedan.glb',
-      '/models/car_suv.glb',
-      '/models/car_taxi.glb',
-    ];
-    const carColors = [0x2563eb, 0xdc2626, 0xd97706];
-    const carPos = [[4, 10], [7.5, 10], [11, 10]] as [number, number][];
-
-    carPos.forEach(([px, pz], i) => {
-      // Hitbox sempre criada (para raycasting funcionar antes do modelo carregar)
-      const hb = new THREE.Mesh(
-        new THREE.BoxGeometry(2.6, 1.2, 1.4),
-        new THREE.MeshBasicMaterial({ visible: false }),
-      );
-      hb.position.set(px, 0.6, pz);
-      this.group.add(hb);
-      this.hitboxes.push({ mesh: hb, id: `car:${i}` });
-
-      // Placeholder procedural (removido quando o GLB chegar)
-      const placeholder = this._buildCarProcedural(carColors[i]);
-      placeholder.position.set(px, 0, pz);
-      placeholder.rotation.y = Math.PI / 2;
-      this.group.add(placeholder);
-
-      _gltf.load(
-        carModels[i],
-        (gltf) => {
-          this.group.remove(placeholder);
-          const model = gltf.scene;
-
-          // Normalizar tamanho para ~2.4u de comprimento
-          const box = new THREE.Box3().setFromObject(model);
-          const size = new THREE.Vector3();
-          box.getSize(size);
-          const maxDim = Math.max(size.x, size.z) || 1;
-          model.scale.setScalar(2.4 / maxDim);
-
-          // Sentar na grama (y = 0)
-          const box2 = new THREE.Box3().setFromObject(model);
-          model.position.y -= box2.min.y;
-
-          // Colorir carroceria principal com a cor do slot
-          const bodyColor = new THREE.Color(carColors[i]);
-          model.traverse((obj) => {
-            const mesh = obj as THREE.Mesh;
-            if (!mesh.isMesh) return;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            const mat = mesh.material as THREE.MeshStandardMaterial;
-            // Heurística Kenney: mesh mais largo é a carroceria
-            if (mat && size.x > 0.5) {
-              mesh.material = new THREE.MeshStandardMaterial({
-                color: bodyColor,
-                roughness: 0.35,
-                metalness: 0.25,
-              });
-            }
-          });
-
-          model.position.set(px, model.position.y, pz);
-          model.rotation.y = Math.PI / 2;
-          this.group.add(model);
-        },
-        undefined,
-        () => { /* GLB ausente: placeholder fica */ },
-      );
-    });
-  }
-
-  private _buildCarProcedural(color: number): THREE.Group {
-    const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.3 });
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.65, 1.1), bodyMat);
-    body.position.y = 0.5; body.castShadow = true; g.add(body);
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 0.95), bodyMat);
-    cabin.position.set(-0.15, 1.05, 0); g.add(cabin);
-
-    for (const [wx, wz] of [[-0.8, 0.52], [-0.8, -0.52], [0.8, 0.52], [0.8, -0.52]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.18, 14), wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(wx, 0.26, wz);
-      g.add(wheel);
-    }
-    return g;
-  }
-
-  private _buildVegetation() {
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3e2b, roughness: 0.9 });
-    const leafMat  = new THREE.MeshStandardMaterial({ color: 0x1a5e20, roughness: 0.95 });
-    const positions = [
-      [-20, 15], [-22, 5], [-22, -5], [-22, -20],
-      [22, 10], [22, -5], [22, -20], [-5, 25], [5, 25],
-    ] as [number, number][];
-
-    for (const [tx, tz] of positions) {
-      const h = 2.5 + Math.random() * 1.5;
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, h, 6), trunkMat);
-      trunk.position.set(tx, h / 2, tz);
-      this.group.add(trunk);
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.9 + Math.random() * 0.4, 2.5, 7), leafMat);
-      crown.position.set(tx, h + 1.1, tz);
-      this.group.add(crown);
-    }
-  }
 
   private _buildFlagpole() {
     const steel = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.9 });

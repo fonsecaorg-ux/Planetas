@@ -1,23 +1,22 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 export interface EngineOptions {
   canvas: HTMLCanvasElement;
   onResize?: () => void;
 }
 
-// Só reconfigura near/far quando a mudança passa desta fração. Em VR, cada
-// mudança dispara updateRenderState na sessão — não pode acontecer todo quadro.
 const LIMIAR_MUDANCA_CLIP = 0.25;
 
 export class Engine {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
-  // Rig: todo deslocamento do usuário move este grupo. Em sessão WebXR o
-  // Three.js sobrescreve a pose da câmera com a do headset a cada quadro —
-  // mover a câmera direto não teria efeito. Fora do VR o rig fica na origem
-  // e o OrbitControls move a câmera dentro dele.
   readonly rig: THREE.Group;
+  readonly bloomPass: UnrealBloomPass;
+  private composer: EffectComposer;
   private running = false;
   private clock = new THREE.Clock();
   private updateCallbacks: Array<(dt: number, elapsed: number) => void> = [];
@@ -34,11 +33,9 @@ export class Engine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.1;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    // 'local': a cabeça começa na origem do rig. 'local-floor' somaria ~1,6 m
-    // de altura — 1,6 raio terrestre nesta escala
     this.renderer.xr.setReferenceSpaceType('local');
 
     this.scene = new THREE.Scene();
@@ -52,6 +49,18 @@ export class Engine {
     this.rig.add(this.camera);
     this.scene.add(this.rig);
 
+    // Post-processing: bloom seletivo (threshold alto → só objetos muito brilhantes)
+    // Fora de XR o composer substitui o render direto; em XR usa renderer direto
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.65,  // strength
+      0.5,   // radius
+      0.88,  // threshold — só o Sol e emissivos muito intensos
+    );
+    this.composer.addPass(this.bloomPass);
+
     this.resizeObserver = new ResizeObserver(() => {
       this.handleResize();
       opts.onResize?.();
@@ -63,8 +72,6 @@ export class Engine {
     this.updateCallbacks.push(cb);
   }
 
-  // setAnimationLoop em vez de requestAnimationFrame da janela: durante a
-  // sessão WebXR os quadros vêm da sessão, e o rAF da janela não é chamado
   start() {
     if (this.running) return;
     this.running = true;
@@ -73,7 +80,12 @@ export class Engine {
       const dt = Math.min(this.clock.getDelta(), 0.1);
       const elapsed = this.clock.getElapsedTime();
       for (const cb of this.updateCallbacks) cb(dt, elapsed);
-      this.renderer.render(this.scene, this.camera);
+      // XR não suporta EffectComposer; usa render direto durante sessão VR
+      if (this.renderer.xr.isPresenting) {
+        this.renderer.render(this.scene, this.camera);
+      } else {
+        this.composer.render();
+      }
     });
   }
 
@@ -86,9 +98,6 @@ export class Engine {
     return this.renderer.xr.isPresenting;
   }
 
-  // Ajusta os planos de recorte ao que está em cena. Faixa near/far grande
-  // demais causa z-fighting; logarithmicDepthBuffer resolveria, mas custa caro
-  // no celular
   setClipPlanes(near: number, far: number) {
     const c = this.camera;
     const mudouNear = Math.abs(near - c.near) / c.near > LIMIAR_MUDANCA_CLIP;
@@ -100,18 +109,20 @@ export class Engine {
   }
 
   private handleResize() {
-    // Em VR o tamanho vem do dispositivo; setSize durante a sessão é ignorado com aviso
     if (this.renderer.xr.isPresenting) return;
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    this.composer.setSize(w, h);
+    this.bloomPass.resolution.set(w, h);
   }
 
   dispose() {
     this.stop();
     this.resizeObserver.disconnect();
+    this.composer.dispose();
     this.renderer.dispose();
   }
 }

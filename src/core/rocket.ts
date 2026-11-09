@@ -1,16 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { RocketData } from '@/data/types';
-
-const gltfLoader = new GLTFLoader();
-
-// Partes do foguete Kenney (ordem de baixo para cima)
-const KENNEY_PARTS = [
-  'models/rocket_finsA.glb',
-  'models/rocket_baseA.glb',
-  'models/rocket_fuelA.glb',
-  'models/rocket_topA.glb',
-];
 
 function buildFlameTexture(): THREE.Texture {
   const W = 64; const H = 128;
@@ -42,7 +31,6 @@ export class Rocket {
   private launchT = 0;
   private baseY = 0;
   private flameSprite: THREE.Sprite | null = null;
-  private disposed = false;
 
   constructor(data: RocketData, index: number) {
     this.data = data;
@@ -50,8 +38,8 @@ export class Rocket {
     this.visual = new THREE.Group();
     this.group.add(this.visual);
 
-    // Sempre tenta montar o foguete com partes Kenney primeiro
-    this.loadKenneyParts(data, index);
+    // Procedural Falcon-9 style — sem dependência de GLBs externos
+    this.buildProcedural(data, index);
 
     // Hitbox
     const hbGeo = new THREE.SphereGeometry(0.9, 8, 8);
@@ -84,85 +72,7 @@ export class Rocket {
     this.group.rotation.z = 0.15;
   }
 
-  private loadKenneyParts(data: RocketData, index: number) {
-    let loaded = 0;
-    const models: (THREE.Group | null)[] = new Array(KENNEY_PARTS.length).fill(null);
-
-    KENNEY_PARTS.forEach((path, pi) => {
-      gltfLoader.load(
-        path,
-        (gltf) => {
-          if (this.disposed) return;
-          models[pi] = gltf.scene;
-          loaded++;
-          if (loaded === KENNEY_PARTS.length) this._assembleKenneyRocket(models, data, index);
-        },
-        undefined,
-        () => {
-          // parte ausente: conta mesmo assim
-          loaded++;
-          if (loaded === KENNEY_PARTS.length) {
-            if (this.disposed) return;
-            const hasAny = models.some(Boolean);
-            if (hasAny) this._assembleKenneyRocket(models, data, index);
-            else        this.buildProcedural(data, index);
-          }
-        },
-      );
-    });
-  }
-
-  private _assembleKenneyRocket(models: (THREE.Group | null)[], data: RocketData, index: number) {
-    if (this.disposed) return;
-    const bodyColor = new THREE.Color(data.color);
-    const accentColor = new THREE.Color(data.accent);
-    let currentY = 0;
-
-    models.forEach((model, mi) => {
-      if (!model) return;
-
-      // Medir antes de modificar
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-
-      // Colorir: peças pares com cor principal, ímpares com accent
-      model.traverse((obj) => {
-        if ((obj as THREE.Mesh).isMesh) {
-          (obj as THREE.Mesh).material = new THREE.MeshStandardMaterial({
-            color: mi % 2 === 0 ? bodyColor : accentColor,
-            roughness: 0.4,
-            metalness: 0.5,
-          });
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-        }
-      });
-
-      // Centralizar horizontalmente e empilhar
-      const center = new THREE.Vector3();
-      box.getCenter(center);
-      model.position.x -= center.x;
-      model.position.z -= center.z;
-      model.position.y += currentY - box.min.y;
-      currentY += size.y;
-
-      this.visual.add(model);
-    });
-
-    // Escalar para altura alvo (pequeno para caber na cena)
-    const totalBox = new THREE.Box3().setFromObject(this.visual);
-    const totalSize = new THREE.Vector3();
-    totalBox.getSize(totalSize);
-    if (totalSize.y > 0) {
-      const targetH = 1.3 + index * 0.2;
-      const s = targetH / totalSize.y;
-      this.visual.scale.setScalar(s);
-    }
-  }
-
   private buildProcedural(data: RocketData, index: number) {
-    if (this.disposed) return;
     const sc = new THREE.Color(data.color);
     const ac = new THREE.Color(data.accent);
     const H  = 1.0 + index * 0.12;
@@ -268,7 +178,5 @@ export class Rocket {
     }
   }
 
-  dispose() {
-    this.disposed = true;
-  }
+  dispose() {}
 }

@@ -718,6 +718,9 @@ function goBackToHub() {
     engine.scene.add(hub.group);
     engine.scene.environment = null;
     starfield.visible = true;
+    // Restaura bloom do hub: Sol e estrelas brilhantes ativam o glow
+    engine.bloomPass.strength = 0.65;
+    engine.bloomPass.threshold = 0.88;
   }
   currentScene = 'hub';
   selectedBodyId = null;
@@ -740,13 +743,16 @@ function switchToBase() {
   engine.scene.remove(hub.group);
   starfield.visible = false;
   engine.scene.environment = hdrEnv;
+  // Bloom reduzido na base: apenas chama do foguete pode ultrapassar threshold
+  engine.bloomPass.strength = 0.4;
+  engine.bloomPass.threshold = 0.92;
   baseScene?.dispose();
   baseScene = new BaseScene(astronautsData.astronauts as any, rocketsData.rockets as any, store.get().activeAstronaut);
   engine.scene.add(baseScene.group);
   currentScene = 'base';
   rebuildSelectable();
   ajustarLimitesControles();
-  posicionarObservador(new THREE.Vector3(0, 12, 30), new THREE.Vector3(0, 2, 0));
+  posicionarObservador(new THREE.Vector3(-5, 18, 42), new THREE.Vector3(8, 4, -5));
   hud.hidePlanet();
   hud.setScaleIndicator('Base de lançamento — clique em 🏢 para voltar ao Sistema Solar');
 
