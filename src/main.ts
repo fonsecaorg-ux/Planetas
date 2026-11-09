@@ -111,8 +111,9 @@ const CHEGADA_PESO_SOL = 0.6;
 const VIAGEM_DURACAO_MIN_S = 1.5;
 const VIAGEM_DURACAO_MAX_S = 4;
 
-// Toque que anda mais que isto é arrasto de câmera, não seleção
-const LIMIAR_ARRASTO_PX = 8;
+// Mouse preciso: 10px. Touchpad/touch/caneta: 28px (o dedo desliza ao pressionar)
+const LIMIAR_MOUSE_PX  = 10;
+const LIMIAR_TOUCH_PX  = 28;
 
 // Near proporcional à superfície mais próxima: pequeno o bastante para não
 // cortar o que está perto, grande o bastante para não perder precisão de profundidade
@@ -387,15 +388,16 @@ canvas.addEventListener('pointermove', (e) => atualizarHover(e.clientX, e.client
 
 // Um handler só para mouse e toque. click + touchend disparavam juntos no
 // celular, e soltar o dedo depois de girar a câmera selecionava o que estava embaixo
-let pointerInicio: { x: number; y: number; id: number } | null = null;
+let pointerInicio: { x: number; y: number; id: number; type: string } | null = null;
 canvas.addEventListener('pointerdown', (e) => {
-  pointerInicio = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  pointerInicio = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType };
 });
 canvas.addEventListener('pointerup', (e) => {
   const ini = pointerInicio;
   pointerInicio = null;
   if (!ini || ini.id !== e.pointerId) return;
-  if (Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > LIMIAR_ARRASTO_PX) return;
+  const limiar = ini.type === 'mouse' ? LIMIAR_MOUSE_PX : LIMIAR_TOUCH_PX;
+  if (Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > limiar) return;
   selecionarNoPonto(e.clientX, e.clientY);
 });
 
