@@ -5,33 +5,6 @@ import { loadTexture } from '@/utils/textures';
 // Raio mínimo visual para luas pequenas ficarem visíveis
 const MIN_VISUAL_RADIUS = 0.045;
 
-function buildMiniLabel(name: string): THREE.Sprite {
-  const W = 128; const H = 28;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
-
-  ctx.fillStyle = 'rgba(2,10,24,0.65)';
-  ctx.beginPath();
-  ctx.roundRect(1, 2, W - 2, H - 4, 5);
-  ctx.fill();
-  ctx.strokeStyle = '#777799'; ctx.lineWidth = 0.8;
-  ctx.stroke();
-  ctx.fillStyle = '#ccccdd';
-  ctx.font = "bold 13px 'Courier New', monospace";
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(name.toUpperCase(), W / 2, H / 2 + 1);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: tex, transparent: true, depthWrite: false, depthTest: false, toneMapped: false,
-  }));
-  sp.renderOrder = 14;
-  sp.scale.set((W / H) * 0.6, 0.6, 1);
-  return sp;
-}
 
 function buildOrbitCircle(radius: number): THREE.Line {
   const pts: THREE.Vector3[] = [];
@@ -78,11 +51,6 @@ export class SatelliteMoon {
     this.mesh.position.x = this.orbitRadius;
     this.mesh.castShadow = true;
     this.group.add(this.mesh);
-
-    // Label flutuante
-    const label = buildMiniLabel(data.name);
-    label.position.set(this.orbitRadius, visualRadius + 0.3, 0);
-    this.group.add(label);
 
     // Textura se disponível
     if (data.texture) {
