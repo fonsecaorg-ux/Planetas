@@ -53,11 +53,6 @@ export class Rocket {
     // Sempre tenta montar o foguete com partes Kenney primeiro
     this.loadKenneyParts(data, index);
 
-    // Rótulo
-    const label = this.makeLabel(data.name);
-    label.position.y = 1.6 + index * 0.1;
-    this.group.add(label);
-
     // Hitbox
     const hbGeo = new THREE.SphereGeometry(0.9, 8, 8);
     const hbMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -168,56 +163,69 @@ export class Rocket {
 
   private buildProcedural(data: RocketData, index: number) {
     if (this.disposed) return;
-    const bodyColor = new THREE.Color(data.color);
-    const accent = new THREE.Color(data.accent);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.4, metalness: 0.5 });
-    const accentMat = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 0.6 });
-    const height = 0.9 + index * 0.15;
+    const sc = new THREE.Color(data.color);
+    const ac = new THREE.Color(data.accent);
+    const H  = 1.0 + index * 0.12;
+    const R  = H / 14;
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, height * 0.7, 16), bodyMat);
-    body.position.y = height * 0.35;
-    body.castShadow = true;
-    this.visual.add(body);
+    const bodyMat   = new THREE.MeshStandardMaterial({ color: sc, roughness: 0.35, metalness: 0.3 });
+    const accentMat = new THREE.MeshStandardMaterial({ color: ac, roughness: 0.3,  metalness: 0.5 });
+    const darkMat   = new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 0.5, metalness: 0.4 });
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.3, metalness: 0.85 });
 
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, height * 0.08, 16), accentMat);
-    band.position.y = height * 0.5;
-    this.visual.add(band);
+    // 1º estágio
+    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.03, H * 0.58, 20), bodyMat);
+    s1.position.y = H * 0.29; s1.castShadow = true;
+    this.visual.add(s1);
 
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.08, height * 0.2, 16), accentMat);
-    nose.position.y = height * 0.8;
-    nose.castShadow = true;
-    this.visual.add(nose);
+    // faixa de accent
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.002, R * 1.002, H * 0.025, 20), accentMat);
+    stripe.position.y = H * 0.18;
+    this.visual.add(stripe);
 
+    // interstage
+    const ist = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.01, R * 1.01, H * 0.025, 20), darkMat);
+    ist.position.y = H * 0.593;
+    this.visual.add(ist);
+
+    // 2º estágio
+    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.95, R * 0.98, H * 0.19, 20), bodyMat);
+    s2.position.y = H * 0.595 + H * 0.19 * 0.5; s2.castShadow = true;
+    this.visual.add(s2);
+
+    // ogiva
+    const og = new THREE.Mesh(new THREE.ConeGeometry(R * 0.95, H * 0.17, 20), bodyMat);
+    og.position.y = H * 0.595 + H * 0.19 + H * 0.085; og.castShadow = true;
+    this.visual.add(og);
+
+    // bocais (1 central + 4 externos)
+    for (let i = 0; i < 5; i++) {
+      const a = i === 0 ? 0 : ((i - 1) / 4) * Math.PI * 2;
+      const ex = i === 0 ? 0 : Math.cos(a) * R * 0.5;
+      const ez = i === 0 ? 0 : Math.sin(a) * R * 0.5;
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.09, R * 0.14, R * 0.3, 10), nozzleMat);
+      nozzle.rotation.x = Math.PI;
+      nozzle.position.set(ex, 0, ez);
+      this.visual.add(nozzle);
+    }
+
+    // grid fins
     for (let i = 0; i < 4; i++) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, height * 0.25, 0.12), bodyMat);
-      const a = (i / 4) * Math.PI * 2;
-      fin.position.set(Math.cos(a) * 0.12, height * 0.12, Math.sin(a) * 0.12);
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(H * 0.025, H * 0.04, H * 0.048), darkMat);
+      fin.position.set(Math.cos(a) * R * 1.1, H * 0.54, Math.sin(a) * R * 1.1);
       fin.rotation.y = a;
-      fin.castShadow = true;
       this.visual.add(fin);
     }
-  }
 
-  private makeLabel(text: string): THREE.Sprite {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 48;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.beginPath();
-    ctx.roundRect(0, 4, 256, 40, 8);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, 128, 24);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(1.4, 0.26, 1);
-    return sprite;
+    // pernas de pouso (dobradas)
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(H * 0.012, H * 0.1, H * 0.012), darkMat);
+      leg.position.set(Math.cos(a) * R * 0.9, H * 0.055, Math.sin(a) * R * 0.9);
+      leg.rotation.y = a; leg.rotation.z = 0.25;
+      this.visual.add(leg);
+    }
   }
 
   launch() {

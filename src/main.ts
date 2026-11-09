@@ -148,7 +148,6 @@ let timeSpeed = progress.timeSpeed;
 let currentScene: 'hub' | 'planet' | 'base' = 'hub';
 let selectedBodyId: string | null = null;
 let baseScene: BaseScene | null = null;
-let inTour = false;
 let transition: CameraTransition | null = null;
 
 // Posição do Sol em coordenadas de mundo, compartilhada com os shaders
@@ -532,14 +531,12 @@ function selectBody(id: string) {
         <div class="subtitle">Sede do time de exploradores</div>
         <p style="font-size:0.85rem;opacity:0.85;">Sala de monitores, estações de trabalho e comunicação com a frota. Aqui a equipe coordena lançamentos, missões e telemetria.</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn" id="tour-btn">👁️ Tour interno</button>
           <button class="btn" id="cert-btn">📜 Certificado</button>
         </div>
       `;
       card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
       card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
       card.querySelector('#cert-btn')?.addEventListener('click', () => showCertificate());
-      card.querySelector('#tour-btn')?.addEventListener('click', () => enterTour());
     }
     return;
   }
@@ -691,7 +688,6 @@ function goBackToHub() {
     engine.scene.remove(baseScene.group);
     baseScene.dispose();
     baseScene = null;
-    inTour = false;
     engine.scene.add(hub.group);
     engine.scene.environment = null;
     starfield.visible = true;
@@ -747,32 +743,6 @@ function switchToBase() {
   }
 }
 
-function enterTour() {
-  if (!baseScene || inTour) return;
-  inTour = true;
-  // câmera dentro do prédio, olhando para os monitores
-  posicionarObservador(new THREE.Vector3(-10, 1.7, -12), new THREE.Vector3(-10, 2.0, -17));
-  // mostrar botão sair
-  const card = document.querySelector('#planet-card') as HTMLElement;
-  if (card) {
-    card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>👁️ Tour interno</h2>
-        <button class="btn" id="exit-tour-btn">Sair do tour</button>
-      </div>
-      <p style="font-size:0.85rem;opacity:0.85;">Você está dentro do Centro de Controle. Olhe para os monitores e para a janela com vista da plataforma de lançamento.</p>
-    `;
-    card.querySelector('#exit-tour-btn')?.addEventListener('click', () => exitTour());
-  }
-}
-
-function exitTour() {
-  if (!inTour) return;
-  inTour = false;
-  posicionarObservador(new THREE.Vector3(0, 12, 30), new THREE.Vector3(0, 2, 0));
-  // reabrir card do prédio
-  selectBody('building');
-}
 
 function setScaleMode(m: ScaleMode) {
   scaleMode = m;

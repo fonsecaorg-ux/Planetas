@@ -707,6 +707,11 @@ export class BaseScene {
   private smokePos: Float32Array | null = null;
   private smokeVel: Float32Array | null = null;
   private smokeActive = false;
+  // Veículo de lançamento dedicado (base scene)
+  private launchVehicle: THREE.Group | null = null;
+  private launchVehicleT = 0;
+  private launchVehicleLaunching = false;
+  private launchFlame: THREE.Sprite | null = null;
   // Cinematic launch (D)
   private dirLight!: THREE.DirectionalLight;
   private padLights: THREE.SpotLight[] = [];
@@ -949,7 +954,7 @@ export class BaseScene {
     parent.add(room);
   }
 
-  private _buildLaunchComplex(rocketData: RocketData[]) {
+  private _buildLaunchComplex(_rocketData: RocketData[]) {
     const steel = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.5, metalness: 0.75 });
     const conc  = new THREE.MeshStandardMaterial({ color: 0x5a5a5a, roughness: 0.8 });
 
@@ -967,15 +972,9 @@ export class BaseScene {
     const tower = this._gantryTower(14, -5, steel);
     this.group.add(tower);
 
-    // Foguetes
-    rocketData.forEach((r, i) => {
-      const rocket = new Rocket(r, i);
-      rocket.group.position.set(13 + i * 2.2, 0, -5);
-      (rocket as any).baseY = 0;
-      this.rockets.push(rocket);
-      this.group.add(rocket.group);
-      this.hitboxes.push({ mesh: rocket.hitbox, id: `rocket:${r.id}` });
-    });
+    // Veículo de lançamento — construção procedural tipo Falcon 9
+    this.launchVehicle = this._buildLaunchVehicle();
+    this.group.add(this.launchVehicle);
 
     // Estrutura modular extra (decorativa) ao lado do launch pad
     _gltf.load('/models/station_structure.glb', (gltf) => {
@@ -1008,6 +1007,105 @@ export class BaseScene {
 
     // Estacionamento (simplificado — sem GLB para evitar latência)
     this._buildParkingLot();
+  }
+
+  /** Veículo de lançamento Falcon-9 style — procedural, escala real para a cena */
+  private _buildLaunchVehicle(): THREE.Group {
+    const H  = 15;    // altura total (unidades)
+    const R  = H / 20; // raio do corpo principal (proporção slim)
+
+    const whiteMat  = new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 0.30, metalness: 0.18 });
+    const darkMat   = new THREE.MeshStandardMaterial({ color: 0x1c1c2a, roughness: 0.50, metalness: 0.35 });
+    const accentMat = new THREE.MeshStandardMaterial({ color: 0x1a56db, roughness: 0.35, metalness: 0.20 });
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.28, metalness: 0.90 });
+
+    const g = new THREE.Group();
+
+    // 1º estágio (58% da altura)
+    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.03, H * 0.58, 24), whiteMat);
+    s1.position.y = H * 0.29; s1.castShadow = true;
+    g.add(s1);
+
+    // faixa de accent logo abaixo da metade
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.002, R * 1.002, H * 0.022, 24), accentMat);
+    stripe.position.y = H * 0.17;
+    g.add(stripe);
+
+    // interstage (anel de transição)
+    const ist = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.01, R * 1.01, H * 0.024, 24), darkMat);
+    ist.position.y = H * 0.592;
+    g.add(ist);
+
+    // 2º estágio (18%)
+    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.96, R * 0.98, H * 0.18, 24), whiteMat);
+    s2.position.y = H * 0.592 + H * 0.18 * 0.5; s2.castShadow = true;
+    g.add(s2);
+
+    // ogiva — tronco + cone afilado
+    const fT = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.96, R * 0.96, H * 0.09, 24), whiteMat);
+    fT.position.y = H * 0.592 + H * 0.18 + H * 0.045; fT.castShadow = true;
+    g.add(fT);
+    const fC = new THREE.Mesh(new THREE.ConeGeometry(R * 0.96, H * 0.11, 24), whiteMat);
+    fC.position.y = H * 0.592 + H * 0.18 + H * 0.09 + H * 0.055; fC.castShadow = true;
+    g.add(fC);
+
+    // bocais Merlin (1 central + 8 externos)
+    for (let i = 0; i < 9; i++) {
+      const a  = i === 0 ? 0 : ((i - 1) / 8) * Math.PI * 2;
+      const ex = i === 0 ? 0 : Math.cos(a) * R * 0.52;
+      const ez = i === 0 ? 0 : Math.sin(a) * R * 0.52;
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.085, R * 0.14, R * 0.5, 12), nozzleMat);
+      nozzle.rotation.x = Math.PI;
+      nozzle.position.set(ex, 0, ez);
+      g.add(nozzle);
+    }
+
+    // grid fins (4, no topo do 1º estágio)
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(H * 0.025, H * 0.042, H * 0.05), darkMat);
+      fin.position.set(Math.cos(a) * R * 1.12, H * 0.555, Math.sin(a) * R * 1.12);
+      fin.rotation.y = a;
+      g.add(fin);
+    }
+
+    // pernas de pouso (4, dobradas ao longo do corpo)
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(H * 0.012, H * 0.11, H * 0.012), darkMat);
+      leg.position.set(Math.cos(a) * R * 0.9, H * 0.055, Math.sin(a) * R * 0.9);
+      leg.rotation.y = a; leg.rotation.z = 0.22;
+      g.add(leg);
+    }
+
+    // chama de idle (sprite aditivo)
+    const flameCanvas = document.createElement('canvas');
+    flameCanvas.width = 64; flameCanvas.height = 128;
+    const fc = flameCanvas.getContext('2d')!;
+    const fg = fc.createRadialGradient(32, 96, 2, 32, 96, 32);
+    fg.addColorStop(0,   'rgba(255,255,220,1)');
+    fg.addColorStop(0.3, 'rgba(255,180,40,0.9)');
+    fg.addColorStop(0.65,'rgba(255,80,10,0.5)');
+    fg.addColorStop(1,   'rgba(0,0,0,0)');
+    fc.fillStyle = fg;
+    fc.fillRect(0, 0, 64, 128);
+    const flameTex = new THREE.CanvasTexture(flameCanvas);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: flameTex,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      opacity: 0,
+    }));
+    flame.scale.set(1.2, 2.0, 1);
+    flame.position.y = -0.5;
+    flame.renderOrder = 10;
+    g.add(flame);
+    this.launchFlame = flame;
+
+    // posição: centro do pad, vertical
+    g.position.set(14, 0.5, -5);
+    return g;
   }
 
   /** Torre de serviço tipo gantry com estrutura treliçada */
@@ -1280,7 +1378,28 @@ export class BaseScene {
     if (this.smokeActive) this._animateSmoke(dt);
     this._animateFlash(dt);
     this._animateMonitors(dt);
+    this._animateLaunchVehicle(dt);
     if (this.patrolActive) this._animatePatrol(dt);
+  }
+
+  private _animateLaunchVehicle(dt: number) {
+    if (!this.launchVehicle || !this.launchFlame) return;
+    const flame = this.launchFlame;
+    const mat = flame.material as THREE.SpriteMaterial;
+
+    if (this.launchVehicleLaunching) {
+      this.launchVehicleT += dt;
+      this.launchVehicle.position.y = 0.5 + this.launchVehicleT * 5.5;
+      // chama cresce e pisca
+      const flicker = 0.88 + Math.random() * 0.24;
+      const sc = (1.0 + this.launchVehicleT * 1.2) * flicker;
+      flame.scale.set(sc * 0.9, sc * 1.8, 1);
+      mat.opacity = 0.9;
+    } else {
+      // idle: chama pequena e piscante
+      mat.opacity = 0.08 + Math.sin(Date.now() / 80) * 0.04;
+      flame.scale.set(0.5, 0.9, 1);
+    }
   }
 
   private _animateFlash(dt: number) {
@@ -1505,7 +1624,8 @@ export class BaseScene {
         for (const l of this.padLights) l.intensity = 5.0;
         this.journeyPanel?.renderLaunch();
         narrate('lancamento');
-        for (const r of this.rockets) r.launch();
+        this.launchVehicleLaunching = true;
+        this.launchVehicleT = 0;
         break;
       case 'concluido':
         this.shakeIntensity = 0;
