@@ -1,0 +1,14 @@
+# assets_info.txt
+# Pacote para projeto Three.js — mobile VR, alvo 60fps
+# Licenças: Kenney CC0; texturas Solar System Scope CC BY 4.0; placeholders não são assets finais.
+arquivo | fonte_url | licença | tamanho_kb | observação
+public/models/rocket.glb | https://raw.githubusercontent.com/shorepine/kenney/main/3d/space/craft_racer.glb | CC0 1.0 (Kenney) | 18.8 | modelo genérico de nave espacial usado como foguete; fonte de conteúdo: Kenney Space Kit; URL de recuperação: https://raw.githubusercontent.com/shorepine/kenney/main/3d/space/craft_racer.glb
+public/models/car.glb | https://raw.githubusercontent.com/shorepine/kenney/main/3d/toy-car/vehicle-suv.glb | CC0 1.0 (Kenney) | 104.2 | veículo low-poly; fonte de conteúdo: Kenney Car Kit; URL de recuperação: https://raw.githubusercontent.com/shorepine/kenney/main/3d/toy-car/vehicle-suv.glb
+public/models/control_building.glb | https://raw.githubusercontent.com/shorepine/kenney/main/3d/space/structure_detailed.glb | CC0 1.0 (Kenney) | 13.6 | estrutura modular low-poly usada como prédio de controle; fonte de conteúdo: Kenney Space Kit; URL de recuperação: https://raw.githubusercontent.com/shorepine/kenney/main/3d/space/structure_detailed.glb
+public/textures/venus.jpg | https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg | CC BY 4.0 (Solar System Scope) | 864.3 | mapa de superfície 2K; atribuição exigida
+public/textures/mars.jpg | https://www.solarsystemscope.com/textures/download/2k_mars.jpg | CC BY 4.0 (Solar System Scope) | 733.0 | mapa de superfície 2K; atribuição exigida
+public/textures/saturn.jpg | https://www.solarsystemscope.com/textures/download/2k_saturn.jpg | CC BY 4.0 (Solar System Scope) | 195.2 | mapa de superfície 2K; atribuição exigida
+public/textures/uranus.jpg | https://www.solarsystemscope.com/textures/download/2k_uranus.jpg | CC BY 4.0 (Solar System Scope) | 75.9 | mapa de superfície 2K; atribuição exigida
+public/textures/neptune.jpg | https://www.solarsystemscope.com/textures/download/2k_neptune.jpg | CC BY 4.0 (Solar System Scope) | 235.9 | mapa de superfície 2K; atribuição exigida
+public/textures/starmap_2020_2k.jpg | https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/starmap_2020_2k.jpg | placeholder — ver nota | 12.3 | placeholder 2048x1024: URL solicitada retorna HTTP 404; a página NASA SVS 4851 oferece EXR e JPEG print 1024x512, mas não o JPG 2K solicitado
+public/textures/pluto.jpg | https://www.solarsystemscope.com/textures/download/2k_pluto.jpg | placeholder — ver nota | 12.3 | placeholder 2048x1024: arquivo não está disponível na página oficial atual de texturas Solar System Scope; a página lista outros objetos e não publica Plutão
