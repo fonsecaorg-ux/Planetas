@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadTexture } from '@/utils/textures';
 
 // 1 unidade = raio terrestre (6371 km)
 const MOON_RADIUS = 1737.4 / 6371; // ≈ 0.273
@@ -87,6 +88,13 @@ export class MoonBase {
     this.moon.castShadow = true;
     this.moon.receiveShadow = true;
     this.moonGroup.add(this.moon);
+
+    // Carrega textura real (moon.jpg) se disponível
+    loadTexture('moon.jpg', 'rocky', '#c4c0b8').then(tex => {
+      mat.map = tex;
+      mat.color.setScalar(1); // remover tint de cor ao usar textura
+      mat.needsUpdate = true;
+    });
 
     // Hitbox invisível (1.8× raio) para clique fácil
     const hbGeo = new THREE.SphereGeometry(MOON_RADIUS * 1.8, 8, 8);

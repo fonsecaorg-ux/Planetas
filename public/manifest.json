@@ -1,0 +1,22 @@
+{
+  "name": "Explorador do Sistema Solar",
+  "short_name": "Sistema Solar",
+  "description": "Exploração imersiva do sistema solar em 3D com realidade virtual",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0f1e",
+  "theme_color": "#0a0f1e",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["education", "games"]
+}

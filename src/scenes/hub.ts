@@ -13,6 +13,7 @@ import { orbitDistance } from '@/utils/scale';
 import { keplerianOrbitPath } from '@/utils/orbits';
 import { PlanetLabel } from '@/core/planetLabel';
 import { MoonBase } from '@/core/moonBase';
+import { SatelliteMoon } from '@/core/satelliteMoon';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -57,6 +58,7 @@ export class HubScene {
   private orbitasGlow: THREE.LineSegments | null = null;
   private labels: Map<string, PlanetLabel> = new Map();
   moonBase: MoonBase | null = null;
+  readonly satellites: SatelliteMoon[] = [];
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
 
@@ -84,6 +86,16 @@ export class HubScene {
       const label = new PlanetLabel(b);
       body.group.add(label.sprite);
       this.labels.set(b.id, label);
+
+      // Luas naturais (exceto a Lua da Terra, tratada pela MoonBase)
+      if (b.satellites) {
+        b.satellites.forEach((sat, si) => {
+          if (sat.id === 'moon') return; // já tratado por MoonBase
+          const satMoon = new SatelliteMoon(sat, body.radius, si);
+          body.group.add(satMoon.group);
+          this.satellites.push(satMoon);
+        });
+      }
     }
     this.criarOrbitas(opts.data.bodies, opts.scaleMode);
 
@@ -288,6 +300,7 @@ export class HubScene {
       }
     }
     if (this.moonBase) this.moonBase.update(dt, timeSpeed);
+    for (const sat of this.satellites) sat.update(dt, timeSpeed);
     for (const belt of this.belts) belt.update(dt, timeSpeed);
     for (const t of this.trajectories) t.update(dt, timeSpeed);
     if (cp) this.cortarDetalhesDistantes(cp);
@@ -316,6 +329,7 @@ export class HubScene {
     for (const t of this.trajectories) t.dispose();
     this.removerOrbitas();
     this.moonBase?.dispose();
+    for (const sat of this.satellites) sat.dispose();
     for (const l of this.labels.values()) l.dispose();
     this.labels.clear();
   }
