@@ -106,19 +106,22 @@ export class CelestialBody {
     }
 
     if (opts.data.atmosphereGlow) {
+      const atmColor     = opts.data.atmosphereColor    ?? '#6ab0ff';
+      const atmIntensity = opts.data.atmosphereIntensity ?? 1.6;
+      const atmScale     = opts.data.atmosphereScale    ?? 1.06;
       const atmMat = new THREE.ShaderMaterial({
         vertexShader: atmosphereVertex,
         fragmentShader: atmosphereFragment,
         uniforms: {
-          uColor: { value: new THREE.Color(opts.data.id === 'venus' ? 0xffe0a0 : 0x6ab0ff) },
-          uIntensity: { value: opts.data.id === 'venus' ? 1.2 : 1.6 },
-          uSunPos: { value: this.sunPosition },
+          uColor:    { value: new THREE.Color(atmColor) },
+          uIntensity:{ value: atmIntensity },
+          uSunPos:   { value: this.sunPosition },
         },
         transparent: true,
         side: THREE.BackSide,
         depthWrite: false,
       });
-      this.atmosphere = new THREE.Mesh(new THREE.SphereGeometry(r * 1.06, 48, 48), atmMat);
+      this.atmosphere = new THREE.Mesh(new THREE.SphereGeometry(r * atmScale, 48, 48), atmMat);
       this.group.add(this.atmosphere);
     }
 
@@ -249,6 +252,14 @@ export class CelestialBody {
       angle: Math.random() * Math.PI * 2,
       dist: moonDistance(s.distanceKm, this.data.radiusKm, this.scaleMode),
     });
+    if (s.texture) {
+      loadTexture(s.texture, 'rocky', s.color).then((tex) => {
+        if (this.disposed) return;
+        mat.map = tex;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+      });
+    }
   }
 
   private updatePosition() {

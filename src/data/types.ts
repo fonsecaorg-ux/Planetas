@@ -89,6 +89,9 @@ export interface BodyData {
   cloudTexture?: string;
   normalMap?: string;
   atmosphereGlow?: boolean;
+  atmosphereColor?: string;
+  atmosphereIntensity?: number;
+  atmosphereScale?: number;
   animatedClouds?: boolean;
   rings?: boolean;
   thinRings?: boolean;

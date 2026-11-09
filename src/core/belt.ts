@@ -12,6 +12,7 @@ export class Belt {
   readonly data: BodyData;
   readonly group: THREE.Group;
   private points: THREE.Points;
+  private dustRing: THREE.Mesh | null = null;
   private scaleMode: ScaleMode;
 
   constructor(data: BodyData, scaleMode: ScaleMode) {
@@ -20,6 +21,35 @@ export class Belt {
     this.group = new THREE.Group();
     this.points = this.build();
     this.group.add(this.points);
+    this.dustRing = this.buildDustRing();
+    if (this.dustRing) this.group.add(this.dustRing);
+  }
+
+  private buildDustRing(): THREE.Mesh | null {
+    if (this.data.id !== 'asteroid-belt') return null;
+    const [rMin, rMax] = this.radiusRange();
+    const inner = orbitDistance(rMin * UA_KM * 0.88, this.scaleMode);
+    const outer = orbitDistance(rMax * UA_KM * 1.12, this.scaleMode);
+    const geo = new THREE.RingGeometry(inner, outer, 128);
+    // Reatribui UVs para gradient inner→outer (mesmo padrão dos anéis planetários)
+    const pos = geo.attributes.position;
+    const uv  = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i);
+      const t = (Math.sqrt(x * x + y * y) - inner) / (outer - inner);
+      uv.setXY(i, t, 0.5);
+    }
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x9a8060,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = Math.PI / 2;
+    return mesh;
   }
 
   private radiusRange(): [number, number] {
@@ -69,10 +99,21 @@ export class Belt {
     (this.points.material as THREE.Material).dispose();
     this.points = this.build();
     this.group.add(this.points);
+    if (this.dustRing) {
+      this.group.remove(this.dustRing);
+      this.dustRing.geometry.dispose();
+      (this.dustRing.material as THREE.Material).dispose();
+    }
+    this.dustRing = this.buildDustRing();
+    if (this.dustRing) this.group.add(this.dustRing);
   }
 
   dispose() {
     this.points.geometry.dispose();
     (this.points.material as THREE.Material).dispose();
+    if (this.dustRing) {
+      this.dustRing.geometry.dispose();
+      (this.dustRing.material as THREE.Material).dispose();
+    }
   }
 }
