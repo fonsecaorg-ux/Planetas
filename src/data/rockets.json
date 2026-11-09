@@ -4,7 +4,6 @@
     {
       "id": "rocket-scout",
       "name": "Falcão-X (Explorador)",
-      "model": "models/craft_racer.glb",
       "type": "Leve / Sonda",
       "heightM": 28,
       "massKg": "2.8e5",
@@ -25,7 +24,6 @@
     {
       "id": "rocket-crew",
       "name": "Titã-VII (Tripulado)",
-      "model": "models/craft_speederA.glb",
       "type": "Médio / Tripulado",
       "heightM": 62,
       "massKg": "1.2e6",
@@ -33,7 +31,7 @@
       "stages": 3,
       "payloadKg": 22000,
       "deltaVms": 12500,
-      "crew": ["astro-lucas", "astro-mariana"],
+      "crew": ["astro-juan", "astro-kezia"],
       "color": "#fbbf24",
       "accent": "#f87171",
       "curiosities": [
@@ -46,7 +44,6 @@
     {
       "id": "rocket-heavy",
       "name": "Colosso-IX (Cargueiro)",
-      "model": "models/craft_cargoA.glb",
       "type": "Pesado / Cargueiro",
       "heightM": 98,
       "massKg": "3.0e6",
@@ -54,7 +51,7 @@
       "stages": 4,
       "payloadKg": 140000,
       "deltaVms": 11000,
-      "crew": ["astro-rafael"],
+      "crew": ["astro-nino"],
       "color": "#a78bfa",
       "accent": "#34d399",
       "curiosities": [

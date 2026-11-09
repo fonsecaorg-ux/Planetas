@@ -5,12 +5,21 @@ import type { AstronautData } from '@/data/types';
 export class Astronaut {
   readonly data: AstronautData;
   readonly group: THREE.Group;
+  readonly hitbox: THREE.Mesh;
   private t = Math.random() * Math.PI * 2;
   private mixer: THREE.AnimationMixer | null = null;
 
   constructor(data: AstronautData, index: number) {
     this.data = data;
     this.group = new THREE.Group();
+
+    // Hitbox invisível para clique
+    const hbGeo = new THREE.SphereGeometry(0.6, 8, 8);
+    const hbMat = new THREE.MeshBasicMaterial({ visible: false });
+    this.hitbox = new THREE.Mesh(hbGeo, hbMat);
+    this.hitbox.position.y = 0.5;
+    (this.hitbox as any).userData = { bodyId: `astronaut:${data.id}` };
+    this.group.add(this.hitbox);
 
     // Placeholder enquanto o modelo carrega
     const phGeo = new THREE.CapsuleGeometry(0.12, 0.4, 4, 8);

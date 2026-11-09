@@ -56,7 +56,7 @@ export class HubScene {
   private orbitas: THREE.LineSegments | null = null;
   private orbitasGlow: THREE.LineSegments | null = null;
   private labels: Map<string, PlanetLabel> = new Map();
-  private moonBase: MoonBase | null = null;
+  moonBase: MoonBase | null = null;
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
 

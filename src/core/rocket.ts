@@ -4,6 +4,34 @@ import type { RocketData } from '@/data/types';
 
 const gltfLoader = new GLTFLoader();
 
+// Partes do foguete Kenney (ordem de baixo para cima)
+const KENNEY_PARTS = [
+  'models/rocket_finsA.glb',
+  'models/rocket_baseA.glb',
+  'models/rocket_fuelA.glb',
+  'models/rocket_topA.glb',
+];
+
+function buildFlameTexture(): THREE.Texture {
+  const W = 64; const H = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // Chama: branco quente no centro → laranja → transparente na borda
+  const grad = ctx.createRadialGradient(W / 2, H * 0.75, 2, W / 2, H * 0.75, W * 0.5);
+  grad.addColorStop(0,   'rgba(255,255,220,1.0)');
+  grad.addColorStop(0.25,'rgba(255,200,60,0.95)');
+  grad.addColorStop(0.55,'rgba(255,100,20,0.7)');
+  grad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export class Rocket {
   readonly data: RocketData;
   readonly group: THREE.Group;
@@ -13,7 +41,7 @@ export class Rocket {
   private launching = false;
   private launchT = 0;
   private baseY = 0;
-  private flame: THREE.Mesh | null = null;
+  private flameSprite: THREE.Sprite | null = null;
   private disposed = false;
 
   constructor(data: RocketData, index: number) {
@@ -22,25 +50,38 @@ export class Rocket {
     this.visual = new THREE.Group();
     this.group.add(this.visual);
 
-    if (data.model) {
-      this.loadModel(data.model, index);
-    } else {
-      this.buildProcedural(data, index);
-    }
+    // Sempre tenta montar o foguete com partes Kenney primeiro
+    this.loadKenneyParts(data, index);
 
     // Rótulo
     const label = this.makeLabel(data.name);
-    label.position.y = 1.4 + index * 0.1;
+    label.position.y = 1.6 + index * 0.1;
     this.group.add(label);
 
-    // Hitbox (local ao grupo)
+    // Hitbox
     const hbGeo = new THREE.SphereGeometry(0.9, 8, 8);
     const hbMat = new THREE.MeshBasicMaterial({ visible: false });
     this.hitbox = new THREE.Mesh(hbGeo, hbMat);
+    this.hitbox.position.y = 0.6;
     this.group.add(this.hitbox);
     (this.hitbox as any).userData = { bodyId: `rocket:${data.id}` };
 
-    // Posição padrão (hub: ao redor da Terra). Chamadores podem sobrescrever.
+    // Chama Sprite (AdditiveBlending) — funciona tanto com Kenney quanto procedural
+    const flameSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: buildFlameTexture(),
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      opacity: 0,
+    }));
+    flameSprite.scale.set(0.35, 0.65, 1);
+    flameSprite.position.y = -0.1;
+    flameSprite.renderOrder = 10;
+    this.visual.add(flameSprite);
+    this.flameSprite = flameSprite;
+
+    // Posição padrão ao redor da Terra
     const radius = 3.5 + index * 0.8;
     const angle = (index / 3) * Math.PI * 2 + 1.0;
     this.group.position.set(Math.cos(angle) * radius, -0.5, Math.sin(angle) * radius);
@@ -48,47 +89,81 @@ export class Rocket {
     this.group.rotation.z = 0.15;
   }
 
-  private loadModel(path: string, index: number) {
-    gltfLoader.load(
-      path,
-      (gltf) => {
-        if (this.disposed) return;
-        const model = gltf.scene;
-        // Normalizar escala/tamanho para caber no contexto (Kenney craft ~1u)
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const target = 1.2 + index * 0.15;
-        const s = target / maxDim;
-        model.scale.setScalar(s);
-        // Centralizar base
-        box.setFromObject(model);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        model.position.sub(center);
-        box.setFromObject(model);
-        model.position.y -= box.min.y;
+  private loadKenneyParts(data: RocketData, index: number) {
+    let loaded = 0;
+    const models: (THREE.Group | null)[] = new Array(KENNEY_PARTS.length).fill(null);
 
-        model.traverse((obj) => {
-          if ((obj as THREE.Mesh).isMesh) {
-            obj.castShadow = true;
-            obj.receiveShadow = true;
+    KENNEY_PARTS.forEach((path, pi) => {
+      gltfLoader.load(
+        path,
+        (gltf) => {
+          if (this.disposed) return;
+          models[pi] = gltf.scene;
+          loaded++;
+          if (loaded === KENNEY_PARTS.length) this._assembleKenneyRocket(models, data, index);
+        },
+        undefined,
+        () => {
+          // parte ausente: conta mesmo assim
+          loaded++;
+          if (loaded === KENNEY_PARTS.length) {
+            if (this.disposed) return;
+            const hasAny = models.some(Boolean);
+            if (hasAny) this._assembleKenneyRocket(models, data, index);
+            else        this.buildProcedural(data, index);
           }
-        });
-        // Orientar "para cima" como foguete (Kenney crafts podem estar deitados)
-        model.rotation.x = -Math.PI / 2;
-        // Reajustar base após rotação
-        const box2 = new THREE.Box3().setFromObject(model);
-        model.position.y -= box2.min.y;
+        },
+      );
+    });
+  }
 
-        this.visual.add(model);
-      },
-      undefined,
-      () => {
-        if (!this.disposed) this.buildProcedural(this.data, index);
-      }
-    );
+  private _assembleKenneyRocket(models: (THREE.Group | null)[], data: RocketData, index: number) {
+    if (this.disposed) return;
+    const bodyColor = new THREE.Color(data.color);
+    const accentColor = new THREE.Color(data.accent);
+    let currentY = 0;
+
+    models.forEach((model, mi) => {
+      if (!model) return;
+
+      // Medir antes de modificar
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      // Colorir: peças pares com cor principal, ímpares com accent
+      model.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          (obj as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            color: mi % 2 === 0 ? bodyColor : accentColor,
+            roughness: 0.4,
+            metalness: 0.5,
+          });
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+
+      // Centralizar horizontalmente e empilhar
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      model.position.x -= center.x;
+      model.position.z -= center.z;
+      model.position.y += currentY - box.min.y;
+      currentY += size.y;
+
+      this.visual.add(model);
+    });
+
+    // Escalar para altura alvo (pequeno para caber na cena)
+    const totalBox = new THREE.Box3().setFromObject(this.visual);
+    const totalSize = new THREE.Vector3();
+    totalBox.getSize(totalSize);
+    if (totalSize.y > 0) {
+      const targetH = 1.3 + index * 0.2;
+      const s = targetH / totalSize.y;
+      this.visual.scale.setScalar(s);
+    }
   }
 
   private buildProcedural(data: RocketData, index: number) {
@@ -121,14 +196,6 @@ export class Rocket {
       fin.castShadow = true;
       this.visual.add(fin);
     }
-
-    const flameGeo = new THREE.ConeGeometry(0.06, 0.2, 12);
-    const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8833, transparent: true, opacity: 0.7 });
-    const flame = new THREE.Mesh(flameGeo, flameMat);
-    flame.position.y = -0.1;
-    flame.rotation.x = Math.PI;
-    this.visual.add(flame);
-    this.flame = flame;
   }
 
   private makeLabel(text: string): THREE.Sprite {
@@ -161,25 +228,35 @@ export class Rocket {
 
   update(dt: number, timeSpeed: number) {
     this.t += dt * timeSpeed;
+
     if (this.launching) {
       this.launchT += dt * timeSpeed;
       this.group.position.y = this.baseY + this.launchT * 4;
       this.group.rotation.z = 0.15 * (1 - Math.min(this.launchT, 1));
-      if (this.flame) {
-        this.flame.scale.y = 1 + this.launchT * 3;
-        (this.flame.material as THREE.MeshBasicMaterial).opacity = 0.9;
+
+      if (this.flameSprite) {
+        const scale = 0.35 + this.launchT * 0.8;
+        const flicker = 0.85 + Math.random() * 0.3;
+        this.flameSprite.scale.set(scale * 0.6 * flicker, scale * flicker, 1);
+        (this.flameSprite.material as THREE.SpriteMaterial).opacity = 0.9;
       }
+
       if (this.launchT > 2.0) {
         this.launching = false;
         this.group.position.y = this.baseY;
         this.group.rotation.z = 0.15;
-        if (this.flame) {
-          this.flame.scale.y = 1;
-          (this.flame.material as THREE.MeshBasicMaterial).opacity = 0.7;
+        if (this.flameSprite) {
+          (this.flameSprite.material as THREE.SpriteMaterial).opacity = 0;
+          this.flameSprite.scale.set(0.35, 0.65, 1);
         }
       }
     } else {
       this.group.rotation.z = 0.15 + Math.sin(this.t * 1.5) * 0.05;
+      // Chama de idle: pequena, piscando levemente
+      if (this.flameSprite) {
+        (this.flameSprite.material as THREE.SpriteMaterial).opacity = 0.12 + Math.sin(this.t * 8) * 0.06;
+        this.flameSprite.scale.set(0.2, 0.3, 1);
+      }
     }
   }
 

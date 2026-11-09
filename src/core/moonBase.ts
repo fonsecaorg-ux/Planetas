@@ -61,8 +61,9 @@ function buildFlagCanvas(): HTMLCanvasElement {
 
 /** Lua orbitando a Terra com bandeira do Brasil plantada. */
 export class MoonBase {
-  readonly group: THREE.Group;    // parente = earth.group
+  readonly group: THREE.Group;     // parente = earth.group
   readonly moonGroup: THREE.Group; // orbita ao redor da Terra
+  readonly moonHitbox: THREE.Mesh; // hitbox invisível para raycasting
   private moon: THREE.Mesh;
   private t = 0;
 
@@ -85,8 +86,14 @@ export class MoonBase {
     this.moon = new THREE.Mesh(geo, mat);
     this.moon.castShadow = true;
     this.moon.receiveShadow = true;
-    (this.moon as any).userData = { bodyId: 'moon' };
     this.moonGroup.add(this.moon);
+
+    // Hitbox invisível (1.8× raio) para clique fácil
+    const hbGeo = new THREE.SphereGeometry(MOON_RADIUS * 1.8, 8, 8);
+    const hbMat = new THREE.MeshBasicMaterial({ visible: false });
+    this.moonHitbox = new THREE.Mesh(hbGeo, hbMat);
+    (this.moonHitbox as any).userData = { bodyId: 'moon' };
+    this.moonGroup.add(this.moonHitbox);
 
     // Label da Lua
     this.moonGroup.add(this._buildMoonLabel());

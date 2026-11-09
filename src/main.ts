@@ -202,6 +202,10 @@ function rebuildSelectable() {
     (r.hitbox as any).userData = { bodyId: `rocket:${r.data.id}` };
     selectable.push(r.hitbox);
   }
+  // Lua (hitbox invisível no moonGroup)
+  if (hub.moonBase) selectable.push(hub.moonBase.moonHitbox);
+  // Astronautas (hitbox em cada grupo)
+  for (const a of hub.astronauts) selectable.push(a.hitbox);
 }
 rebuildSelectable();
 
@@ -403,6 +407,38 @@ function selectBody(id: string) {
     }
     return;
   }
+  if (id === 'moon') {
+    trocarFoco('earth');
+    hub.applyFloatingOrigin();
+    hub.group.updateMatrixWorld(true);
+    const moonPos = new THREE.Vector3();
+    hub.moonBase!.moonGroup.getWorldPosition(moonPos);
+    audio.transition();
+    viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => showMoonPanel());
+    return;
+  }
+  if (id.startsWith('astronaut:')) {
+    const astroId = id.slice('astronaut:'.length);
+    const astroData = (astronautsData.astronauts as any[]).find((a) => a.id === astroId);
+    if (!astroData) return;
+    const card = document.querySelector('#planet-card') as HTMLElement;
+    if (card) {
+      card.classList.add('visible');
+      card.innerHTML = `
+        ${cardHeader(`👨‍🚀 ${astroData.name}`)}
+        <div class="subtitle" style="color:${astroData.suitColor}">${astroData.role}</div>
+        <p style="font-size:0.85rem;opacity:0.85;margin:8px 0;">${astroData.bio}</p>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:${astroData.suitColor};border:3px solid ${astroData.helmetColor};flex-shrink:0"></div>
+          <span style="font-size:0.78rem;opacity:0.7">Traje: <b>${astroData.suitColor}</b> · Capacete: <b>${astroData.helmetColor}</b></span>
+        </div>
+        ${astroId === 'astro-juan' ? '<div style="margin-top:12px;padding:8px 10px;background:rgba(0,150,59,0.18);border:1px solid rgba(0,150,59,0.5);border-radius:7px;font-size:0.82rem;color:#ffd700">🚩 Plantou a bandeira do Brasil na Lua</div>' : ''}
+      `;
+      card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
+      card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
+    }
+    return;
+  }
   if (id.startsWith('rocket:')) {
     const rid = id.slice('rocket:'.length);
     const rocketData = rocketsData.rockets.find((r: any) => r.id === rid);
@@ -433,6 +469,31 @@ function selectBody(id: string) {
     hud.showPlanet(bodyData);
     atualizarIndicadorEscala(bodyData);
   });
+}
+
+/** Painel da Lua com destaque para a missão do JUAN_GUI7. */
+function showMoonPanel() {
+  const card = document.querySelector('#planet-card') as HTMLElement;
+  if (!card) return;
+  card.classList.add('visible');
+  card.innerHTML = `
+    ${cardHeader('🌙 Lua')}
+    <div class="subtitle">Satélite natural da Terra</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;font-size:0.8rem;opacity:0.8;">
+      <div>⚫ Raio: 1.737 km</div>
+      <div>🔄 Órbita: 27,3 dias</div>
+      <div>🌡️ −173°C / +127°C</div>
+      <div>⚖️ Gravidade: 1/6 ⊕</div>
+      <div>💨 Sem atmosfera</div>
+      <div>📏 384.400 km da Terra</div>
+    </div>
+    <div style="padding:10px;background:rgba(0,150,59,0.14);border:1px solid rgba(0,150,59,0.45);border-radius:8px;">
+      <div style="font-size:0.85rem;font-weight:bold;color:#ffd700;margin-bottom:5px">🚩 Missão Bandeira do Brasil</div>
+      <div style="font-size:0.8rem;line-height:1.5;opacity:0.95"><b>JUAN_GUI7</b>, Comandante Lunar, pousou na superfície e plantou a Bandeira do Brasil — primeiro explorador brasileiro a conquistar a Lua.</div>
+    </div>
+  `;
+  card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
+  card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
 }
 
 /** Fecha o painel de informações sem mover a câmera. */
