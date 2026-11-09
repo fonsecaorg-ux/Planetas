@@ -8,6 +8,8 @@
       "model": "models/male_a.glb",
       "suitColor": "#e8eef7",
       "helmetColor": "#7dd3fc",
+      "skinColor": "#c68642",
+      "eyeColor": "#6b4226",
       "bio": "Comandante da missão, primeiro a plantar a bandeira do Brasil na Lua.",
       "role": "Comandante Lunar"
     },
@@ -18,6 +20,8 @@
       "model": "models/female_a.glb",
       "suitColor": "#a78bfa",
       "helmetColor": "#34d399",
+      "skinColor": "#f0c8a0",
+      "eyeColor": "#1a9e72",
       "bio": "Cientista da missão, especialista em geologia planetária.",
       "role": "Cientista"
     },
@@ -28,6 +32,8 @@
       "model": "models/male_b.glb",
       "suitColor": "#fbbf24",
       "helmetColor": "#f87171",
+      "skinColor": "#7d4a1e",
+      "eyeColor": "#3d1f00",
       "bio": "Engenheiro de voo e especialista em sistemas de suporte à vida.",
       "role": "Engenheiro"
     },
@@ -38,6 +44,8 @@
       "model": "models/astronaut.glb",
       "suitColor": "#10b981",
       "helmetColor": "#6366f1",
+      "skinColor": "#c19a6b",
+      "eyeColor": "#1e3a8a",
       "bio": "Especialista em exploração de superfície e operações extravehiculares.",
       "role": "Explorador"
     }

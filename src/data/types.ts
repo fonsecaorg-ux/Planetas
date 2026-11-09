@@ -36,6 +36,8 @@ export interface AstronautData {
   model?: string;
   suitColor: string;
   helmetColor: string;
+  skinColor?: string;
+  eyeColor?: string;
   bio: string;
   role: string;
 }
