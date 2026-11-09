@@ -67,7 +67,7 @@ const data = loadSolarSystemData();
 const store = new ProgressStore();
 const audio = new AudioEngine();
 // Sync anônimo com Firestore (no-op se VITE_FIREBASE_* não estiver configurado)
-new CloudSync(store);
+const cloudSync = new CloudSync(store);
 const progress = store.get();
 
 let scaleMode: ScaleMode = progress.scaleMode;
@@ -146,6 +146,7 @@ const hud = new HUD(uiRoot, {
 const mainBodies = data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet');
 hud.setBodyCount(mainBodies.length);
 hud.setMainBodyIds(mainBodies.map((b) => b.id));
+cloudSync.onStatusChange = (s) => hud.setSyncStatus(s);
 hud.updateProgress(store.get());
 // Restaurar portal se já completado em sessão anterior
 if (store.get().visited.filter((id) => mainBodies.some((b) => b.id === id)).length >= mainBodies.length) {

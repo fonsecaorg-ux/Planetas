@@ -37,6 +37,7 @@ export class CloudSync {
   private anonId: string;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private db: Firestore | null = null;
+  onStatusChange?: (status: 'idle' | 'syncing' | 'done' | 'error') => void;
 
   constructor(store: ProgressStore) {
     this.store = store;
@@ -85,6 +86,7 @@ export class CloudSync {
 
   scheduleSync() {
     if (!this.db) return;
+    this.onStatusChange?.('syncing');
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => this.doSync(), DEBOUNCE_MS);
   }
@@ -97,8 +99,12 @@ export class CloudSync {
         json: this.store.exportJSON(),
         updatedAt: Date.now(),
       });
+      this.onStatusChange?.('done');
+      setTimeout(() => this.onStatusChange?.('idle'), 3000);
     } catch (err) {
       console.warn('[cloudSync] Sync falhou:', err);
+      this.onStatusChange?.('error');
+      setTimeout(() => this.onStatusChange?.('idle'), 5000);
     }
   }
 }

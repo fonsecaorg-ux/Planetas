@@ -66,6 +66,7 @@ export class HUD {
               <button data-scale="visual" class="${this.scaleMode === 'visual' ? 'active' : ''}">Visual</button>
               <button data-scale="real" class="${this.scaleMode === 'real' ? 'active' : ''}">Escala real</button>
             </div>
+            <span id="sync-dot" title="Sincronização na nuvem" style="font-size:0.8rem;opacity:0;transition:opacity 0.4s;"></span>
           </div>
         </div>
 
@@ -325,7 +326,7 @@ export class HUD {
         <div>Concluiu a missão de exploração do sistema solar.</div>
         <div class="date">Data: ${d}</div>
         <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn primary" id="cert-export">Exportar imagem</button>
+          <button class="btn primary" id="cert-export">📤 Exportar / Compartilhar</button>
           <button class="btn" id="cert-close">Fechar</button>
         </div>
       </div>
@@ -340,6 +341,149 @@ export class HUD {
     cert.querySelector('#cert-name-apply')?.addEventListener('click', apply);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') apply(); });
     cert.querySelector('#cert-close')?.addEventListener('click', () => this.hideCertificate());
+
+    const exportBtn = cert.querySelector('#cert-export') as HTMLButtonElement | null;
+    exportBtn?.addEventListener('click', async () => {
+      if (exportBtn.disabled) return;
+      exportBtn.textContent = '⏳ Gerando…';
+      exportBtn.disabled = true;
+      try {
+        const currentName = (cert.querySelector('#cert-name-display') as HTMLElement)?.textContent || name || 'Explorador';
+        await this.exportAndShare(currentName, d);
+      } catch {
+        // Usuário cancelou o compartilhamento ou erro — mantém silêncio
+      } finally {
+        exportBtn.textContent = '📤 Exportar / Compartilhar';
+        exportBtn.disabled = false;
+      }
+    });
+  }
+
+  private async exportAndShare(nome: string, dataPT: string): Promise<void> {
+    const W = 1000, H = 580;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d')!;
+
+    // Fundo espacial
+    ctx.fillStyle = '#080d1a';
+    ctx.fillRect(0, 0, W, H);
+
+    // Estrelas determinísticas
+    const sx = [100,230,480,720,900,50,310,560,840,30,170,420,670,920,80,250,500,750,990,140,380,630,870,20,290,540,780,60,200,450];
+    const sy = [80,120,200,280,360,440,500,60,140,220,300,380,460,520,100,160,240,320,400,480,70,150,230,310,390,470,110,190,270,350];
+    sx.forEach((x, i) => {
+      ctx.globalAlpha = 0.25 + (i % 5) * 0.1;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x, sy[i], 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Borda dourada
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(16, 16, W - 32, H - 32);
+    ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(24, 24, W - 48, H - 48);
+
+    // Faixa superior
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, 'rgba(30,60,180,0.5)');
+    grad.addColorStop(0.5, 'rgba(50,100,220,0.75)');
+    grad.addColorStop(1, 'rgba(30,60,180,0.5)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(32, 32, W - 64, 68);
+
+    // Título
+    ctx.font = 'bold 28px Georgia, serif';
+    ctx.fillStyle = '#fbbf24';
+    ctx.textAlign = 'center';
+    ctx.fillText('CERTIFICADO DE EXPLORADOR', W / 2, 76);
+
+    // Linha decorativa
+    ctx.strokeStyle = 'rgba(251,191,36,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, 112); ctx.lineTo(W - 80, 112); ctx.stroke();
+
+    ctx.font = '16px Arial, sans-serif';
+    ctx.fillStyle = '#7dd3fc';
+    ctx.fillText('Explorador do Sistema Solar', W / 2, 136);
+
+    ctx.font = '15px Arial, sans-serif';
+    ctx.fillStyle = '#8899aa';
+    ctx.fillText('Certificamos que', W / 2, 190);
+
+    // Nome do aluno
+    ctx.font = `bold ${Math.min(44, Math.max(24, Math.floor(900 / (nome.length || 1))))  }px Georgia, serif`;
+    ctx.fillStyle = '#e8eef7';
+    ctx.fillText(nome.length > 30 ? nome.slice(0, 30) + '…' : nome, W / 2, 248);
+
+    ctx.font = '17px Arial, sans-serif';
+    ctx.fillStyle = '#c0d0e8';
+    ctx.fillText('concluiu com êxito a exploração do Sistema Solar,', W / 2, 296);
+    ctx.fillText('visitando todos os planetas e completando as missões científicas.', W / 2, 322);
+
+    // Separador
+    ctx.strokeStyle = 'rgba(125,211,252,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(80, 355); ctx.lineTo(W - 80, 355); ctx.stroke();
+
+    // Planetas (círculos coloridos com anel para Saturno)
+    const planets: { color: string; r: number; ring?: boolean }[] = [
+      { color: '#ffd700', r: 14 }, { color: '#b5b5b5', r: 6  },
+      { color: '#e8c990', r: 8  }, { color: '#3b82f6', r: 9  },
+      { color: '#ef4444', r: 7  }, { color: '#d97706', r: 13 },
+      { color: '#f59e0b', r: 11, ring: true },
+      { color: '#67e8f9', r: 10 }, { color: '#6366f1', r: 10 },
+    ];
+    const totalPW = planets.reduce((s, p) => s + (p.ring ? p.r * 2 + 20 : p.r * 2) + 12, -12);
+    let px = (W - totalPW) / 2;
+    const py = 395;
+    for (const p of planets) {
+      const pr = p.ring ? p.r + 10 : p.r;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(px + pr, py, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.ring) {
+        ctx.strokeStyle = 'rgba(240,210,120,0.7)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(px + pr, py, pr * 1.5, 4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      px += pr * 2 + 12;
+    }
+
+    ctx.font = '14px Courier New, monospace';
+    ctx.fillStyle = '#667788';
+    ctx.fillText(`Data: ${dataPT}`, W / 2, 470);
+
+    ctx.font = 'bold 13px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(125,211,252,0.6)';
+    ctx.fillText('✶ EXPLORADOR DO SISTEMA SOLAR', W / 2, 500);
+
+    // Gerar blob e compartilhar/baixar
+    const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/png'));
+    const file = new File([blob], 'certificado-sistema-solar.png', { type: 'image/png' });
+
+    if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: 'Meu Certificado — Explorador do Sistema Solar',
+        text: `${nome} concluiu a exploração de todos os planetas do Sistema Solar! 🚀🪐`,
+        files: [file],
+      });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'certificado-sistema-solar.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }
 
   hideCertificate() {
@@ -469,6 +613,21 @@ export class HUD {
         if (ex) this.showPlanet(ex);
       });
     });
+  }
+
+  setSyncStatus(status: 'idle' | 'syncing' | 'done' | 'error') {
+    const dot = this.root.querySelector('#sync-dot') as HTMLElement | null;
+    if (!dot) return;
+    const map = {
+      idle:   { text: '',       color: 'transparent', opacity: '0' },
+      syncing:{ text: '↑☁', color: '#fbbf24',    opacity: '1' },
+      done:   { text: '✓☁', color: '#22c55e',    opacity: '1' },
+      error:  { text: '✗☁', color: '#ef4444',    opacity: '1' },
+    };
+    const s = map[status];
+    dot.textContent = s.text;
+    dot.style.color = s.color;
+    dot.style.opacity = s.opacity;
   }
 
   updateProgressPill() {
