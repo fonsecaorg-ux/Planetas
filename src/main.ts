@@ -61,6 +61,24 @@ function saveDailyState(s: DailyState) {
   try { localStorage.setItem(DAILY_KEY, JSON.stringify(s)); } catch { /* */ }
 }
 
+function buildBaseQuestions(): MissionQuestion[] {
+  const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
+  const easy: MissionQuestion[] = [];
+  const medium: MissionQuestion[] = [];
+  for (const b of data.bodies) {
+    if (b.type === 'belt') continue;
+    easy.push(b.mission.easy, b.mission.medium);
+    const bp = pool[b.id];
+    if (bp?.easy)   easy.push(...bp.easy);
+    if (bp?.medium) medium.push(...bp.medium);
+  }
+  const shuffle = <T>(arr: T[]) => {
+    for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    return arr;
+  };
+  return [shuffle(easy)[0], shuffle(medium)[0], shuffle(medium)[1]];
+}
+
 function getDailyQuestion(): MissionQuestion {
   const pool = questionPool as Record<string, Record<string, MissionQuestion[]>>;
   const all: MissionQuestion[] = [];
@@ -710,16 +728,13 @@ function switchToBase() {
   hud.setScaleIndicator('Base de lançamento terrestre — Centro de Controle');
 
   // Inicia a jornada terrestre se ainda não foi concluída
-  if (!store.get().journeyDone) {
-    const earthBody = data.bodies.find((b) => b.id === 'earth');
-    if (earthBody && baseScene) {
-      baseScene.startJourney(
-        earthBody,
-        () => { store.setJourneyDone(); goBackToHub(); },
-        (pos, target) => { viajar(pos, target); }
-      );
-      rebuildSelectable(); // inclui hitboxes do painel de quiz
-    }
+  if (!store.get().journeyDone && baseScene) {
+    baseScene.startJourney(
+      buildBaseQuestions(),
+      () => { store.setJourneyDone(); goBackToHub(); },
+      (pos, target) => { viajar(pos, target); },
+    );
+    rebuildSelectable();
   }
 }
 

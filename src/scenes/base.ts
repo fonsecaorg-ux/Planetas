@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import type { AstronautData, RocketData, BodyData } from '@/data/types';
+import type { AstronautData, RocketData, MissionQuestion } from '@/data/types';
 import { Astronaut } from '@/core/astronaut';
 import { Rocket } from '@/core/rocket';
 import { createDaylight } from '@/core/lighting';
@@ -9,7 +9,7 @@ import { narrate } from '@/core/narration';
 
 const _gltf = new GLTFLoader();
 
-export type JourneyState = 'idle' | 'chegada' | 'treinamento' | 'contagem' | 'lancamento' | 'concluido';
+export type JourneyState = 'idle' | 'pronto' | 'treinamento' | 'resultado' | 'contagem' | 'lancamento' | 'concluido';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design system do painel
@@ -88,6 +88,18 @@ class JourneyPanel {
       this.buttonHitboxes.push({ mesh: hb, id: `quiz:${i}` });
     }
 
+    // Hitbox: botão INICIAR MISSÃO (quiz:99) e REPETIR (quiz:98) — centro inferior
+    for (const id of ['quiz:99', 'quiz:98']) {
+      const hb = new THREE.Mesh(
+        new THREE.BoxGeometry(PANEL_W * 0.6, 0.32, 0.1),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      );
+      hb.position.set(0, (0.5 - 660 / CANVAS_H) * PANEL_H, 0.07);
+      hb.userData = { bodyId: id };
+      this.group.add(hb);
+      this.buttonHitboxes.push({ mesh: hb, id });
+    }
+
     this.renderIdle();
   }
 
@@ -128,30 +140,112 @@ class JourneyPanel {
     });
   }
 
+  renderReady() {
+    this._draw(() => {
+      const ctx = this.ctx;
+      this._base();
+      this._header('BASE DE LANÇAMENTO', 'PRONTO PARA MISSÃO', C.green);
+
+      ctx.font = '72px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('🚀', CANVAS_W / 2, 260);
+
+      this._card(100, 300, CANVAS_W - 200, 200, C.cyanGlow, C.cyanDim);
+      ctx.fillStyle = C.cyan;
+      ctx.font = `bold 18px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('MISSÃO DE TREINAMENTO', CANVAS_W / 2, 335);
+      ctx.fillStyle = C.textHi;
+      ctx.font = '16px system-ui, sans-serif';
+      this._wrapped('Responda 3 perguntas sobre o Sistema Solar. Acerte ao menos 2 de 3 para liberar o lançamento.', 130, 368, CANVAS_W - 260, 24);
+
+      // Botão INICIAR
+      ctx.fillStyle = C.cyan;
+      ctx.shadowColor = C.cyan; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.roundRect(220, 596, CANVAS_W - 440, 86, 10); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#030c18';
+      ctx.font = `bold 22px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText('▶  INICIAR MISSÃO', CANVAS_W / 2, 648);
+
+      this._footer('CLIQUE NO BOTÃO ACIMA PARA COMEÇAR');
+    });
+  }
+
+  renderResult(correct: number, total: number) {
+    this._draw(() => {
+      const ctx = this.ctx;
+      this._base();
+      const passed = correct >= 2;
+      this._header('RESULTADO FINAL', passed ? 'APROVADO ✓' : 'INSUFICIENTE', passed ? C.green : C.amber);
+
+      ctx.font = '72px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(passed ? '✅' : '⚠️', CANVAS_W / 2, 250);
+
+      const scoreColor = passed ? C.green : C.amber;
+      ctx.fillStyle = scoreColor;
+      ctx.font = `bold 52px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`${correct} / ${total}`, CANVAS_W / 2, 365);
+
+      ctx.fillStyle = C.textHi;
+      ctx.font = '18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(passed ? 'Autorização de lançamento concedida!' : `Mínimo: 2 de ${total}. Tente novamente.`, CANVAS_W / 2, 418);
+
+      if (!passed) {
+        // Botão REPETIR
+        ctx.fillStyle = C.amber;
+        ctx.shadowColor = C.amber; ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.roundRect(220, 596, CANVAS_W - 440, 86, 10); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#030c18';
+        ctx.font = `bold 22px 'Courier New', monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('↺  REPETIR MISSÃO', CANVAS_W / 2, 648);
+        this._footer('CLIQUE PARA TENTAR NOVAMENTE');
+      } else {
+        this._footer('INICIANDO CONTAGEM REGRESSIVA...');
+      }
+    });
+  }
+
   renderQuestion(
     question: string,
     options: string[],
     feedback?: string,
     answered?: number,
     correct?: number,
+    questionNum = 1,
+    totalQuestions = 3,
   ) {
     this._draw(() => {
       const ctx = this.ctx;
       this._base();
-      this._header('TREINAMENTO DE VOO', 'MISSÃO EM ANDAMENTO', C.amber);
+      this._header('TREINAMENTO DE VOO', `${questionNum}/${totalQuestions}`, C.amber);
+
+      // Indicador de progresso das perguntas
+      const dotR = 10;
+      for (let i = 0; i < totalQuestions; i++) {
+        const cx = CANVAS_W / 2 + (i - (totalQuestions - 1) / 2) * 32;
+        this.ctx.fillStyle = i < questionNum ? C.amber : 'rgba(255,255,255,0.15)';
+        this.ctx.beginPath(); this.ctx.arc(cx, 86, dotR, 0, Math.PI * 2); this.ctx.fill();
+      }
 
       // Box da pergunta
-      this._card(40, 95, CANVAS_W - 80, 170, C.amberDim, C.amber);
+      this._card(40, 108, CANVAS_W - 80, 158, C.amberDim, C.amber);
 
       ctx.fillStyle = C.amber;
       ctx.font = `bold 14px 'Courier New', monospace`;
       ctx.textAlign = 'left';
-      ctx.fillText('> PERGUNTA DE MISSÃO', 68, 122);
+      ctx.fillText('> PERGUNTA DE MISSÃO', 68, 134);
 
       ctx.fillStyle = C.textHi;
-      ctx.font = 'bold 19px system-ui, sans-serif';
+      ctx.font = 'bold 18px system-ui, sans-serif';
       ctx.textAlign = 'left';
-      this._wrapped(question, 60, 150, CANVAS_W - 120, 26);
+      this._wrapped(question, 60, 162, CANVAS_W - 120, 26);
 
       // Botões de opção
       const letters = ['A', 'B', 'C', 'D'];
@@ -559,13 +653,24 @@ export class BaseScene {
 
   private journeyState: JourneyState = 'idle';
   private journeyPanel: JourneyPanel | null = null;
-  private quizData: BodyData['mission'] | null = null;
-  private quizDifficulty: 'easy' | 'medium' = 'easy';
+  private quizQuestions: MissionQuestion[] = [];
+  private quizIndex = 0;
+  private quizCorrect = 0;
   private quizAnswered: number | undefined = undefined;
   private countdownSecs = 10;
   private countdownElapsed = 0;
   private launchElapsed = 0;
-  private chegadaElapsed = 0;
+  // Animated flag
+  private flagGeo: THREE.BufferGeometry | null = null;
+  private flagOrigPos: Float32Array | null = null;
+  private flagTime = 0;
+  // Clouds
+  private clouds: Array<{ mesh: THREE.Mesh; speed: number }> = [];
+  // Smoke
+  private smokeGeo: THREE.BufferGeometry | null = null;
+  private smokePos: Float32Array | null = null;
+  private smokeVel: Float32Array | null = null;
+  private smokeActive = false;
 
   onJourneyComplete?: () => void;
   onCameraRequest?: (pos: THREE.Vector3, target: THREE.Vector3) => void;
@@ -580,6 +685,8 @@ export class BaseScene {
     this._buildLaunchComplex(rocketData);
     this._buildVegetation();
     this._buildFlagpole();
+    this._buildClouds();
+    this._buildSmoke();
 
     astronautData.forEach((a, i) => {
       const astro = new Astronaut(a, i);
@@ -1006,7 +1113,7 @@ export class BaseScene {
     pole.position.set(-18, 5, -10);
     this.group.add(pole);
 
-    // Bandeira (canvas com as cores do Brasil)
+    // Bandeira com geometria subdividida para animação de ondulação
     const flagCanvas = document.createElement('canvas');
     flagCanvas.width = 200; flagCanvas.height = 128;
     const ctx = flagCanvas.getContext('2d')!;
@@ -1021,9 +1128,66 @@ export class BaseScene {
     ctx.fillText('ORDEM E PROGRESSO', 100, 68);
 
     const flagTex = new THREE.CanvasTexture(flagCanvas);
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), new THREE.MeshBasicMaterial({ map: flagTex, side: THREE.DoubleSide }));
+    const geo = new THREE.PlaneGeometry(2.2, 1.4, 14, 8);
+    this.flagGeo = geo;
+    this.flagOrigPos = Float32Array.from(geo.attributes.position.array as Float32Array);
+    const flag = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: flagTex, side: THREE.DoubleSide }));
     flag.position.set(-16.9, 8.8, -10);
     this.group.add(flag);
+  }
+
+  private _buildClouds() {
+    const makeCloudTex = (): THREE.CanvasTexture => {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 128;
+      const cx = c.getContext('2d')!;
+      const blobs: [number, number, number][] = [[80, 64, 70], [140, 56, 60], [170, 72, 50], [50, 72, 44], [210, 60, 44]];
+      for (const [bx, by, r] of blobs) {
+        const g = cx.createRadialGradient(bx, by, 0, bx, by, r);
+        g.addColorStop(0, 'rgba(255,255,255,0.85)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        cx.fillStyle = g;
+        cx.fillRect(0, 0, 256, 128);
+      }
+      return new THREE.CanvasTexture(c);
+    };
+
+    const positions: [number, number, number][] = [[-40, 70, -80], [30, 65, -120], [-80, 80, -60], [70, 75, -100]];
+    const speeds = [1.8, 1.2, 2.2, 1.5];
+    for (let i = 0; i < positions.length; i++) {
+      const [px, py, pz] = positions[i];
+      const w = 30 + Math.random() * 20;
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, w * 0.45),
+        new THREE.MeshBasicMaterial({ map: makeCloudTex(), transparent: true, opacity: 0.45 + Math.random() * 0.2, depthWrite: false, side: THREE.DoubleSide }),
+      );
+      mesh.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.15;
+      mesh.position.set(px, py, pz);
+      this.group.add(mesh);
+      this.clouds.push({ mesh, speed: speeds[i] });
+    }
+  }
+
+  private _buildSmoke() {
+    const count = 100;
+    const pos = new Float32Array(count * 3);
+    const vel = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3]     = 14 + (Math.random() - 0.5) * 1.5;
+      pos[i * 3 + 1] = -20; // abaixo do solo (inativo)
+      pos[i * 3 + 2] = -5 + (Math.random() - 0.5) * 1.5;
+      vel[i * 3]     = (Math.random() - 0.5) * 0.6;
+      vel[i * 3 + 1] = 1.2 + Math.random() * 2.0;
+      vel[i * 3 + 2] = (Math.random() - 0.5) * 0.6;
+    }
+    this.smokePos = pos;
+    this.smokeVel = vel;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos.slice(), 3));
+    this.smokeGeo = geo;
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbbbbbb, size: 1.8, transparent: true, opacity: 0.35, depthWrite: false, sizeAttenuation: true }));
+    this.group.add(pts);
   }
 
   /** Letreiro com texto em canvas */
@@ -1059,18 +1223,62 @@ export class BaseScene {
     for (const a of this.astronauts) a.update(dt, timeSpeed);
     for (const r of this.rockets) r.update(dt, timeSpeed);
     this.tickJourney(dt);
+    this._animateFlag(dt);
+    this._animateClouds(dt);
+    if (this.smokeActive) this._animateSmoke(dt);
+  }
+
+  private _animateFlag(dt: number) {
+    if (!this.flagGeo || !this.flagOrigPos) return;
+    this.flagTime += dt;
+    const pos = this.flagGeo.attributes.position as THREE.BufferAttribute;
+    const orig = this.flagOrigPos;
+    for (let i = 0; i < pos.count; i++) {
+      const lx = orig[i * 3];        // x local: −1.1 (mastro) → +1.1 (ponta livre)
+      const t  = (lx + 1.1) / 2.2;  // 0 no mastro, 1 na ponta livre
+      const w1 = Math.sin(lx * 2.8 - this.flagTime * 3.5) * 0.14 * t * t;
+      const w2 = Math.sin(lx * 5.5 - this.flagTime * 5.2 + 1.0) * 0.05 * t;
+      pos.setZ(i, w1 + w2);
+    }
+    pos.needsUpdate = true;
+  }
+
+  private _animateClouds(dt: number) {
+    for (const { mesh, speed } of this.clouds) {
+      mesh.position.x += speed * dt;
+      if (mesh.position.x > 160) mesh.position.x = -160;
+    }
+  }
+
+  private _animateSmoke(dt: number) {
+    if (!this.smokeGeo || !this.smokePos || !this.smokeVel) return;
+    const attr = this.smokeGeo.attributes.position as THREE.BufferAttribute;
+    const count = this.smokePos.length / 3;
+    for (let i = 0; i < count; i++) {
+      this.smokePos[i * 3]     += this.smokeVel[i * 3] * dt;
+      this.smokePos[i * 3 + 1] += this.smokeVel[i * 3 + 1] * dt;
+      this.smokePos[i * 3 + 2] += this.smokeVel[i * 3 + 2] * dt;
+      if (this.smokePos[i * 3 + 1] > 25) {
+        this.smokePos[i * 3]     = 14 + (Math.random() - 0.5) * 1.5;
+        this.smokePos[i * 3 + 1] = 0;
+        this.smokePos[i * 3 + 2] = -5 + (Math.random() - 0.5) * 1.5;
+      }
+      attr.setXYZ(i, this.smokePos[i * 3], this.smokePos[i * 3 + 1], this.smokePos[i * 3 + 2]);
+    }
+    attr.needsUpdate = true;
   }
 
   startJourney(
-    bodyData: BodyData,
+    questions: MissionQuestion[],
     onComplete: () => void,
     onCamera: (pos: THREE.Vector3, target: THREE.Vector3) => void,
   ) {
-    this.quizData = bodyData.mission;
+    this.quizQuestions = questions;
+    this.quizIndex = 0;
+    this.quizCorrect = 0;
+    this.quizAnswered = undefined;
     this.onJourneyComplete = onComplete;
     this.onCameraRequest = onCamera;
-    this.quizDifficulty = 'easy';
-    this.quizAnswered = undefined;
 
     if (!this.journeyPanel) {
       this.journeyPanel = new JourneyPanel(new THREE.Vector3(0, 2.5, 10));
@@ -1078,34 +1286,59 @@ export class BaseScene {
       for (const hb of this.journeyPanel.buttonHitboxes) this.hitboxes.push(hb);
     }
 
-    this.setJourneyState('chegada');
+    this.setJourneyState('pronto');
   }
 
   handlePanelClick(optionIndex: number) {
-    if (this.journeyState !== 'treinamento' || !this.quizData || this.quizAnswered !== undefined) return;
-    const q = this.quizData[this.quizDifficulty];
+    // Botão INICIAR MISSÃO
+    if (optionIndex === 99) {
+      if (this.journeyState === 'pronto') this.setJourneyState('treinamento');
+      return;
+    }
+    // Botão REPETIR MISSÃO
+    if (optionIndex === 98) {
+      if (this.journeyState === 'resultado') {
+        this.quizIndex = 0;
+        this.quizCorrect = 0;
+        this.setJourneyState('treinamento');
+      }
+      return;
+    }
+    if (this.journeyState !== 'treinamento' || this.quizAnswered !== undefined) return;
+    const q = this.quizQuestions[this.quizIndex];
+    if (!q) return;
+
     this.quizAnswered = optionIndex;
     const isCorrect = optionIndex === q.answer;
+    if (isCorrect) this.quizCorrect++;
+
+    const total = this.quizQuestions.length;
     this.journeyPanel?.renderQuestion(
       q.q, q.options,
-      isCorrect ? 'RESPOSTA CORRETA — MISSÃO APROVADA' : 'RESPOSTA INCORRETA — TENTE NOVAMENTE',
+      isCorrect ? 'CORRETO ✓' : 'INCORRETO ✗',
       optionIndex, q.answer,
+      this.quizIndex + 1, total,
     );
-    if (isCorrect) {
-      narrate('treinamento_correto');
-      setTimeout(() => this.setJourneyState('contagem'), 2800);
-    } else {
-      narrate('treinamento_errado');
-      setTimeout(() => { this.quizAnswered = undefined; this._renderCurrentQuiz(); }, 2800);
-    }
+
+    if (isCorrect) narrate('treinamento_correto');
+    else narrate('treinamento_errado');
+
+    setTimeout(() => {
+      this.quizAnswered = undefined;
+      this.quizIndex++;
+      if (this.quizIndex >= total) {
+        this.setJourneyState('resultado');
+      } else {
+        this._renderCurrentQuiz();
+      }
+    }, 2000);
   }
 
   private setJourneyState(state: JourneyState) {
     this.journeyState = state;
     switch (state) {
-      case 'chegada':
-        this.chegadaElapsed = 0;
-        this.journeyPanel?.renderArrival();
+      case 'pronto':
+        this.journeyPanel?.renderReady();
         narrate('chegada');
         this.onCameraRequest?.(new THREE.Vector3(0, 12, 32), new THREE.Vector3(0, 2, 0));
         break;
@@ -1114,6 +1347,12 @@ export class BaseScene {
         this._renderCurrentQuiz();
         narrate('treinamento');
         this.onCameraRequest?.(new THREE.Vector3(-3, 3.5, 22), new THREE.Vector3(0, 2.5, 10));
+        break;
+      case 'resultado':
+        this.journeyPanel?.renderResult(this.quizCorrect, this.quizQuestions.length);
+        if (this.quizCorrect >= 2) {
+          setTimeout(() => this.setJourneyState('contagem'), 2200);
+        }
         break;
       case 'contagem':
         this.countdownSecs = 10;
@@ -1124,6 +1363,7 @@ export class BaseScene {
         break;
       case 'lancamento':
         this.launchElapsed = 0;
+        this.smokeActive = true;
         this.journeyPanel?.renderLaunch();
         narrate('lancamento');
         for (const r of this.rockets) r.launch();
@@ -1136,16 +1376,14 @@ export class BaseScene {
   }
 
   private _renderCurrentQuiz() {
-    if (!this.quizData || !this.journeyPanel) return;
-    const q = this.quizData[this.quizDifficulty];
-    this.journeyPanel.renderQuestion(q.q, q.options);
+    if (!this.journeyPanel) return;
+    const q = this.quizQuestions[this.quizIndex];
+    if (!q) return;
+    this.journeyPanel.renderQuestion(q.q, q.options, undefined, undefined, undefined, this.quizIndex + 1, this.quizQuestions.length);
   }
 
   private tickJourney(dt: number) {
-    if (this.journeyState === 'chegada') {
-      this.chegadaElapsed += dt;
-      if (this.chegadaElapsed >= 3.5) this.setJourneyState('treinamento');
-    } else if (this.journeyState === 'contagem') {
+    if (this.journeyState === 'contagem') {
       this.countdownElapsed += dt;
       if (this.countdownElapsed >= 1) {
         this.countdownSecs--;
