@@ -103,9 +103,6 @@ export class MoonBase {
     (this.moonHitbox as any).userData = { bodyId: 'moon' };
     this.moonGroup.add(this.moonHitbox);
 
-    // Label da Lua
-    this.moonGroup.add(this._buildMoonLabel());
-
     // Bandeira do Brasil (mastro + pano)
     const flag = this._buildFlag();
     // Posicionada no equador da superfície (+X)
@@ -182,32 +179,6 @@ export class MoonBase {
     return new THREE.Line(geo, mat);
   }
 
-  private _buildMoonLabel(): THREE.Sprite {
-    const W = 160; const H = 36;
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.fillStyle = 'rgba(2,10,24,0.72)';
-    ctx.beginPath(); ctx.roundRect(2, 4, W - 4, H - 8, 7); ctx.fill();
-    ctx.strokeStyle = '#888888'; ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = '#dddddd';
-    ctx.font = "bold 16px 'Courier New', monospace";
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('LUA', W / 2, H / 2 + 1);
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: tex, transparent: true, depthWrite: false, depthTest: false, toneMapped: false,
-    }));
-    sp.renderOrder = 15;
-    sp.position.y = MOON_RADIUS + 0.8;
-    sp.scale.set((W / H) * 1.0, 1.0, 1);
-    return sp;
-  }
 
   update(dt: number, timeSpeed: number) {
     this.t += dt * timeSpeed;

@@ -11,7 +11,6 @@ import rocketsData from '@/data/rockets.json';
 import { createSolarLight } from '@/core/lighting';
 import { orbitDistance } from '@/utils/scale';
 import { keplerianOrbitPath } from '@/utils/orbits';
-import { PlanetLabel } from '@/core/planetLabel';
 import { MoonBase } from '@/core/moonBase';
 import { SatelliteMoon } from '@/core/satelliteMoon';
 import { ExoPortal } from '@/core/exoPortal';
@@ -57,7 +56,6 @@ export class HubScene {
   // Todas as órbitas num único LineSegments: uma draw call em vez de uma por planeta
   private orbitas: THREE.LineSegments | null = null;
   private orbitasGlow: THREE.LineSegments | null = null;
-  private labels: Map<string, PlanetLabel> = new Map();
   moonBase: MoonBase | null = null;
   readonly satellites: SatelliteMoon[] = [];
   exoPortal: ExoPortal | null = null;
@@ -83,11 +81,6 @@ export class HubScene {
       const body = new CelestialBody({ data: b, scaleMode: opts.scaleMode, sunPosition: this.sunPosition });
       this.bodies.set(b.id, body);
       this.group.add(body.orbitGroup);
-
-      // Label 3D flutuando acima de cada corpo
-      const label = new PlanetLabel(b);
-      body.group.add(label.sprite);
-      this.labels.set(b.id, label);
 
       // Luas naturais (exceto a Lua da Terra, tratada pela MoonBase)
       if (b.satellites) {
@@ -162,7 +155,7 @@ export class HubScene {
 
   private criarOrbitas(bodies: BodyData[], scaleMode: ScaleMode) {
     this.removerOrbitas();
-    const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet');
+    const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet' && b.type !== 'dwarf');
 
     // Zona interna (≤ Marte) e zona externa — cores distintas
     const INNER_IDS = new Set(['mercury', 'venus', 'earth', 'mars']);
@@ -297,16 +290,6 @@ export class HubScene {
     for (const b of this.bodies.values()) {
       b.update(dt, timeSpeed, cp);
     }
-    // Escala das labels mantida constante na tela
-    if (cp) {
-      for (const [id, label] of this.labels) {
-        const body = this.bodies.get(id);
-        if (!body) continue;
-        body.group.getWorldPosition(_posDetalhe);
-        label.sprite.getWorldPosition(_posDetalhe);
-        label.updateScale(cp.distanceTo(_posDetalhe));
-      }
-    }
     if (this.moonBase) this.moonBase.update(dt, timeSpeed);
     for (const sat of this.satellites) sat.update(dt, timeSpeed);
     this.exoPortal?.update(dt);
@@ -341,7 +324,5 @@ export class HubScene {
     this.moonBase?.dispose();
     for (const sat of this.satellites) sat.dispose();
     this.exoPortal?.dispose();
-    for (const l of this.labels.values()) l.dispose();
-    this.labels.clear();
   }
 }
