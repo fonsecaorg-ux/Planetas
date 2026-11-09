@@ -14,6 +14,7 @@ import { keplerianOrbitPath } from '@/utils/orbits';
 import { PlanetLabel } from '@/core/planetLabel';
 import { MoonBase } from '@/core/moonBase';
 import { SatelliteMoon } from '@/core/satelliteMoon';
+import { ExoPortal } from '@/core/exoPortal';
 
 export interface HubSceneOptions {
   data: SolarSystemData;
@@ -59,6 +60,7 @@ export class HubScene {
   private labels: Map<string, PlanetLabel> = new Map();
   moonBase: MoonBase | null = null;
   readonly satellites: SatelliteMoon[] = [];
+  exoPortal: ExoPortal | null = null;
   private sunPosition: THREE.Vector3;
   private focusId = 'sun';
 
@@ -138,6 +140,12 @@ export class HubScene {
         earth.group.add(rocket.group);
       });
     }
+
+    // Portal interestelar (bônus ao completar o sistema solar)
+    const portalDist = orbitDistance(3e9, opts.scaleMode); // ~20 UA em escala visual
+    this.exoPortal = new ExoPortal();
+    this.exoPortal.setPosition(portalDist);
+    this.group.add(this.exoPortal.group);
 
     // Missão histórica: Voyager 1
     const voyagerPoints: TrajectoryPoint[] = [
@@ -301,6 +309,7 @@ export class HubScene {
     }
     if (this.moonBase) this.moonBase.update(dt, timeSpeed);
     for (const sat of this.satellites) sat.update(dt, timeSpeed);
+    this.exoPortal?.update(dt);
     for (const belt of this.belts) belt.update(dt, timeSpeed);
     for (const t of this.trajectories) t.update(dt, timeSpeed);
     if (cp) this.cortarDetalhesDistantes(cp);
@@ -317,6 +326,7 @@ export class HubScene {
       this.trajectories[i].setScaleMode(mode, this.trajectoryPoints[i]);
     }
     this.criarOrbitas(data.bodies, mode);
+    if (this.exoPortal) this.exoPortal.setPosition(orbitDistance(3e9, mode));
   }
 
   getBody(id: string): CelestialBody | undefined {
@@ -330,6 +340,7 @@ export class HubScene {
     this.removerOrbitas();
     this.moonBase?.dispose();
     for (const sat of this.satellites) sat.dispose();
+    this.exoPortal?.dispose();
     for (const l of this.labels.values()) l.dispose();
     this.labels.clear();
   }

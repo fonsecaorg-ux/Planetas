@@ -1,13 +1,14 @@
-import type { BodyData, ProgressState } from '@/data/types';
+import type { BodyData, ProgressState, MissionQuestion } from '@/data/types';
 import astronautsData from '@/data/astronauts.json';
 import type { ScaleMode } from '@/data/types';
 import { addEarthLink } from '@/ui/earthLink';
+import questionPool from '@/data/questionPool.json';
 
 export interface HUDCallbacks {
   onSelectBody: (id: string) => void;
   onScaleMode: (m: ScaleMode) => void;
   onTimeSpeed: (v: number) => void;
-  onMissionAnswer: (bodyId: string, difficulty: 'easy' | 'medium', index: number) => void;
+  onMissionAnswer: (bodyId: string, difficulty: 'easy' | 'medium', correct: boolean) => void;
   onDifficulty: (d: 'easy' | 'medium') => void;
   onCertificate: () => void;
   onCertificateName: (name: string) => void;
@@ -28,6 +29,9 @@ export class HUD {
   private scaleMode: ScaleMode = 'visual';
   private progress: ProgressState;
   private bodyCount = 10;
+  private mainBodyIds: Set<string> = new Set();
+  private selectedQuestions: Map<string, MissionQuestion> = new Map();
+  private celebrationShown = false;
 
   constructor(root: HTMLElement, callbacks: HUDCallbacks, progress: ProgressState) {
     this.root = root;
@@ -128,6 +132,7 @@ export class HUD {
   }
 
   showPlanet(body: BodyData) {
+    this.selectedQuestions.clear();
     const card = this.root.querySelector('#planet-card') as HTMLElement;
     card.classList.add('visible');
     const satList = body.satellites?.map((s) => s.name).join(', ') || '—';
@@ -211,8 +216,20 @@ export class HUD {
     }
   }
 
+  private getQuestionPool(bodyId: string, diff: 'easy' | 'medium'): MissionQuestion[] {
+    return (questionPool as Record<string, Record<string, MissionQuestion[]>>)[bodyId]?.[diff] ?? [];
+  }
+
   private renderMission(body: BodyData) {
-    const q = body.mission[this.difficulty];
+    const base = body.mission[this.difficulty];
+    const extras = this.getQuestionPool(body.id, this.difficulty);
+    const pool: MissionQuestion[] = [base, ...extras];
+    const key = `${body.id}:${this.difficulty}`;
+    if (!this.selectedQuestions.has(key)) {
+      this.selectedQuestions.set(key, pool[Math.floor(Math.random() * pool.length)]);
+    }
+    const q = this.selectedQuestions.get(key)!;
+
     const qEl = this.root.querySelector('#mission-q') as HTMLElement;
     const optsEl = this.root.querySelector('#mission-opts') as HTMLElement;
     if (!qEl || !optsEl) return;
@@ -222,8 +239,8 @@ export class HUD {
       btn.addEventListener('click', () => {
         if ((btn as HTMLElement).dataset.locked === '1') return;
         const idx = parseInt((btn as HTMLElement).dataset.idx!);
-        this.callbacks.onMissionAnswer(body.id, this.difficulty, idx);
         const correct = idx === q.answer;
+        this.callbacks.onMissionAnswer(body.id, this.difficulty, correct);
         optsEl.querySelectorAll('.opt').forEach((b, i) => {
           b.classList.toggle('correct', i === q.answer);
           if (i === idx && !correct) b.classList.add('wrong');
@@ -233,9 +250,7 @@ export class HUD {
         fb.textContent = correct ? '✅ Correto!' : '❌ Tente novamente.';
         fb.style.color = correct ? '#22c55e' : '#ef4444';
         this.callbacks.onPlaySound(correct ? 'success' : 'error');
-        if (correct) {
-          this.updateProgressPill();
-        }
+        if (correct) this.updateProgressPill();
       });
     });
   }
@@ -368,17 +383,98 @@ export class HUD {
     if (el) el.textContent = text;
   }
 
-  setBodyCount(n: number) { this.bodyCount = n; this.updateProgressPill(); }
+  setBodyCount(n: number) {
+    this.bodyCount = n;
+    // Se já completou ao iniciar a sessão, não exibir a celebração
+    if (n > 0 && this.visitedMainCount() >= n) this.celebrationShown = true;
+    this.updateProgressPill();
+  }
+
+  setMainBodyIds(ids: string[]) { this.mainBodyIds = new Set(ids); }
 
   updateProgress(p: ProgressState) {
     this.progress = p;
     this.updateProgressPill();
+    this.checkCompletion();
+  }
+
+  private visitedMainCount(): number {
+    if (this.mainBodyIds.size === 0) return this.progress.visited.length;
+    return this.progress.visited.filter((id) => this.mainBodyIds.has(id)).length;
+  }
+
+  private checkCompletion() {
+    if (this.celebrationShown || this.bodyCount === 0) return;
+    if (this.visitedMainCount() >= this.bodyCount) {
+      this.celebrationShown = true;
+      this.showCelebration();
+    }
+  }
+
+  private showCelebration() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.93);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    overlay.innerHTML = `
+      <style>
+        @keyframes floatCel{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+        .cel-icon{font-size:2rem;animation:floatCel 2s ease infinite;}
+      </style>
+      <div style="text-align:center;color:#e8eef7;padding:32px;max-width:460px;">
+        <div style="font-size:3.5rem;margin-bottom:8px;">🏆</div>
+        <h1 style="margin:0 0 8px;font-size:1.7rem;color:#fbbf24;">Sistema Solar Conquistado!</h1>
+        <p style="font-size:0.95rem;opacity:0.85;margin:0 0 16px;">Parabéns! Você visitou todos os planetas do sistema solar.</p>
+        <div style="font-size:1.5rem;margin:12px 0;letter-spacing:4px;">
+          <span class="cel-icon">🪐</span>
+          <span class="cel-icon" style="animation-delay:0.3s">🚀</span>
+          <span class="cel-icon" style="animation-delay:0.6s">🌟</span>
+          <span class="cel-icon" style="animation-delay:0.9s">🌌</span>
+        </div>
+        <div style="background:rgba(100,180,255,0.1);border-radius:12px;padding:12px 16px;margin:14px 0;border:1px solid rgba(100,200,255,0.3);">
+          <div style="font-size:0.9rem;color:#7dd3fc;font-weight:700;">🌌 BÔNUS DESBLOQUEADO</div>
+          <div style="font-size:0.82rem;margin-top:4px;opacity:0.9;">Portal Interestelar ativo! Explore exoplanetas além do sistema solar.</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;">
+          <button id="cel-cert" style="padding:10px 22px;background:#fbbf24;color:#000;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📜 Ver Certificado</button>
+          <button id="cel-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Continuar explorando</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#cel-cert')?.addEventListener('click', () => { overlay.remove(); this.callbacks.onCertificate(); });
+    overlay.querySelector('#cel-close')?.addEventListener('click', () => overlay.remove());
+  }
+
+  showExoPortal(exoplanets: BodyData[]) {
+    const card = this.root.querySelector('#planet-card') as HTMLElement;
+    card.classList.add('visible');
+    card.innerHTML = `
+      ${this.cardHeader('\u{1F30C} Portal Interestelar')}
+      <div style="font-size:0.85rem;opacity:0.85;margin:8px 0 12px;line-height:1.5;">
+        Parabéns! Você completou o sistema solar. Estes são mundos em outras estrelas — cada um a anos-luz de distância.
+      </div>
+      ${exoplanets.map((ex) => `
+        <div class="exo-btn" data-id="${ex.id}" style="border:1px solid rgba(100,200,255,0.25);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:rgba(100,180,255,0.05);">
+          <div style="font-weight:700;color:#7dd3fc;">${ex.name}</div>
+          <div style="font-size:0.75rem;opacity:0.8;margin-top:3px;">${ex.curiosities[0]}</div>
+          <div style="font-size:0.72rem;opacity:0.55;margin-top:2px;">📡 ${(ex.distanceAU / 63241).toFixed(2)} anos-luz</div>
+        </div>
+      `).join('')}
+    `;
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
+    card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
+    card.querySelectorAll('.exo-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).dataset.id!;
+        const ex = exoplanets.find((e) => e.id === id);
+        if (ex) this.showPlanet(ex);
+      });
+    });
   }
 
   updateProgressPill() {
     const el = this.root.querySelector('#progress-pill') as HTMLElement | null;
     if (!el) return;
-    const visited = this.progress.visited.length;
+    const visited = this.visitedMainCount();
     const missions = Object.values(this.progress.completedMissions).reduce((sum, m) => {
       return sum + (m.easy?.correct ? 1 : 0) + (m.medium?.correct ? 1 : 0);
     }, 0);

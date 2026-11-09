@@ -117,9 +117,7 @@ const hud = new HUD(uiRoot, {
   onSelectBody: (id) => selectBody(id),
   onScaleMode: (m) => setScaleMode(m),
   onTimeSpeed: (v) => { timeSpeed = v; store.setTimeSpeed(v); },
-  onMissionAnswer: (bodyId, diff, idx) => {
-    const body = data.bodies.find((b) => b.id === bodyId)!;
-    const correct = idx === body.mission[diff].answer;
+  onMissionAnswer: (bodyId, diff, correct) => {
     store.recordMission(bodyId, diff, correct);
   },
   onDifficulty: () => {},
@@ -145,8 +143,14 @@ const hud = new HUD(uiRoot, {
   onCloseCard: () => closeCard(),
   xrRenderer: engine.renderer,
 }, progress);
-hud.setBodyCount(data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet').length);
+const mainBodies = data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet');
+hud.setBodyCount(mainBodies.length);
+hud.setMainBodyIds(mainBodies.map((b) => b.id));
 hud.updateProgress(store.get());
+// Restaurar portal se já completado em sessão anterior
+if (store.get().visited.filter((id) => mainBodies.some((b) => b.id === id)).length >= mainBodies.length) {
+  hub.exoPortal?.unlock();
+}
 
 if (!store.get().onboardingDone) {
   hud.showOnboarding((astroId) => {
@@ -206,6 +210,8 @@ function rebuildSelectable() {
   if (hub.moonBase) selectable.push(hub.moonBase.moonHitbox);
   // Astronautas (hitbox em cada grupo)
   for (const a of hub.astronauts) selectable.push(a.hitbox);
+  // Portal interestelar (somente após desbloqueio)
+  if (hub.exoPortal?.unlocked) selectable.push(hub.exoPortal.hitbox);
 }
 rebuildSelectable();
 
@@ -454,11 +460,24 @@ function selectBody(id: string) {
     viajar(pos.clone().add(new THREE.Vector3(0, 3, 6)), pos, () => hud.showRocket(rocketData as any));
     return;
   }
+  if (id === 'exo-portal') {
+    hud.showExoPortal(data.bodies.filter((b) => b.type === 'exoplanet'));
+    return;
+  }
+
   const bodyData = data.bodies.find((b) => b.id === id);
   if (!bodyData || bodyData.type === 'belt' || !hub.getBody(id)) return;
 
   store.markVisited(id);
   hud.updateProgress(store.get());
+  // Verificar se todos os planetas foram visitados → desbloquear portal
+  if (!hub.exoPortal?.unlocked) {
+    const visited = store.get().visited.filter((vid) => mainBodies.some((b) => b.id === vid));
+    if (visited.length >= mainBodies.length) {
+      hub.exoPortal?.unlock();
+      rebuildSelectable();
+    }
+  }
   hud.hidePlanet();
 
   trocarFoco(id);

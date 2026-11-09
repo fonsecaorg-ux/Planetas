@@ -1,0 +1,108 @@
+{
+  "sun": {
+    "easy": [
+      { "q": "O Sol é classificado como qual tipo de estrela?", "options": ["Supergigante azul", "Anã amarela", "Anã branca", "Nebulosa planetária"], "answer": 1 },
+      { "q": "Qual processo gera energia no interior do Sol?", "options": ["Combustão", "Fissão nuclear", "Fusão nuclear", "Reação química"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Como se chama o vento de partículas carregadas emitido pelo Sol?", "options": ["Brisa solar", "Vento solar", "Jato solar", "Pulso estelar"], "answer": 1 },
+      { "q": "A temperatura da coroa solar comparada à fotosfera é...", "options": ["Muito mais baixa (100×)", "Igual", "Muito mais alta (100×)", "Zero absoluto"], "answer": 2 }
+    ]
+  },
+  "mercury": {
+    "easy": [
+      { "q": "Mercúrio tem luas naturais?", "options": ["Sim, 2 luas", "Não, nenhuma lua", "Sim, 1 lua", "Sim, 3 luas"], "answer": 1 },
+      { "q": "Mercúrio é o planeta...", "options": ["Menor do sistema solar", "Maior do sistema solar", "Com mais luas", "Mais quente"], "answer": 0 }
+    ],
+    "medium": [
+      { "q": "Qual é a variação extrema de temperatura em Mercúrio?", "options": ["−10°C a 50°C", "−180°C a 430°C", "−50°C a 100°C", "−300°C a 600°C"], "answer": 1 },
+      { "q": "Por que Mercúrio não tem atmosfera significativa?", "options": ["Muito frio para reter gás", "Sem campo magnético forte e pequena gravidade", "Muito grande e rochoso", "Muito longe do Sol"], "answer": 1 }
+    ]
+  },
+  "venus": {
+    "easy": [
+      { "q": "Vênus gira em qual sentido comparado à Terra?", "options": ["Mesmo sentido", "Sentido contrário (retrógrado)", "Não gira", "Aleatoriamente"], "answer": 1 },
+      { "q": "Por que Vênus é mais quente que Mercúrio?", "options": ["É mais próximo do Sol", "Efeito estufa extremo de CO₂", "Tem vulcões maiores", "Tem núcleo maior"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "A pressão atmosférica em Vênus comparada à Terra é...", "options": ["Metade da Terra", "Igual à Terra", "90 vezes maior", "1000 vezes maior"], "answer": 2 },
+      { "q": "Um dia (rotação) em Vênus dura mais que...", "options": ["Um mês terrestre", "Um ano em Vênus", "Uma semana terrestre", "Um dia lunar"], "answer": 1 }
+    ]
+  },
+  "earth": {
+    "easy": [
+      { "q": "Qual porcentagem da superfície da Terra é coberta por oceanos?", "options": ["30%", "50%", "71%", "90%"], "answer": 2 },
+      { "q": "O que é a magnetosfera da Terra?", "options": ["Camada de ozônio", "Campo magnético protetor", "Cadeia de montanhas", "Conjunto de oceanos"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "O que causa as estações do ano na Terra?", "options": ["Variação da distância ao Sol", "Inclinação do eixo terrestre", "Rotação da Terra", "Fases da Lua"], "answer": 1 },
+      { "q": "Qual camada atmosférica absorve a radiação ultravioleta?", "options": ["Troposfera", "Termosfera", "Camada de ozônio", "Exosfera"], "answer": 2 }
+    ]
+  },
+  "mars": {
+    "easy": [
+      { "q": "Qual é o maior vulcão do sistema solar, em Marte?", "options": ["Monte Everest", "Monte Olimpo", "Mauna Kea", "Mons Huygens"], "answer": 1 },
+      { "q": "Quantas luas tem Marte?", "options": ["0", "2", "4", "1"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "Como se chamam as luas de Marte?", "options": ["Ío e Europa", "Fobos e Deimos", "Titã e Reia", "Calisto e Ganimedes"], "answer": 1 },
+      { "q": "O que torna o solo de Marte vermelho?", "options": ["Lava recente", "Óxido de ferro (ferrugem)", "Areia colorida", "Radiação intensa"], "answer": 1 }
+    ]
+  },
+  "jupiter": {
+    "easy": [
+      { "q": "A Grande Mancha Vermelha em Júpiter é...", "options": ["Uma montanha vulcânica", "Uma tempestade gigante", "Um oceano de lava", "Uma cratera de impacto"], "answer": 1 },
+      { "q": "Júpiter é um gigante...", "options": ["Rochoso", "De gelo", "Gasoso", "Metálico"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Qual lua de Júpiter tem vulcões ativos?", "options": ["Europa", "Ío", "Calisto", "Ganimedes"], "answer": 1 },
+      { "q": "Por que Júpiter não se tornou uma estrela?", "options": ["Muito frio para brilhar", "Sem massa suficiente para fusão nuclear", "Orbita o Sol em vez de brilhar", "Feito de gás em vez de plasma"], "answer": 1 }
+    ]
+  },
+  "saturn": {
+    "easy": [
+      { "q": "Do que são compostos os anéis de Saturno?", "options": ["Metal e rocha", "Lava solidificada", "Gelo e rocha", "Nuvens de gás"], "answer": 2 },
+      { "q": "Saturno flutuaria na água porque...", "options": ["É muito grande", "Sua densidade é menor que a da água", "É oco por dentro", "Tem anéis leves"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "Qual é a maior lua de Saturno?", "options": ["Titã", "Enceladus", "Reia", "Mimas"], "answer": 0 },
+      { "q": "O que torna a lua Enceladus especial?", "options": ["É de ouro", "Tem geysers de água e possível oceano subterrâneo", "É maior que a Terra", "Tem anéis próprios"], "answer": 1 }
+    ]
+  },
+  "uranus": {
+    "easy": [
+      { "q": "Urano gira de que forma incomum?", "options": ["Ereto como a Terra", "De lado (eixo quase horizontal ~98°)", "De cabeça para baixo", "Muito rápido (10 min/rotação)"], "answer": 1 },
+      { "q": "Urano é um gigante de...", "options": ["Gás como Júpiter", "Gelo (metano, amônia, água)", "Metal", "Rocha e basalto"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "O que dá a cor azul-esverdeada a Urano?", "options": ["Oxigênio líquido", "Metano na atmosfera superior", "Nitrogênio puro", "Enxofre gasoso"], "answer": 1 },
+      { "q": "Qual é a temperatura média de Urano (°C)?", "options": ["−100°C", "−224°C", "−50°C", "−300°C"], "answer": 1 }
+    ]
+  },
+  "neptune": {
+    "easy": [
+      { "q": "Netuno foi o primeiro planeta descoberto por...", "options": ["Telescópio óptico comum", "Cálculos matemáticos", "Olho nu antigo", "Radar espacial"], "answer": 1 },
+      { "q": "Qual é a maior lua de Netuno?", "options": ["Europa", "Calisto", "Tritão", "Caronte"], "answer": 2 }
+    ],
+    "medium": [
+      { "q": "Os ventos em Netuno chegam a que velocidade?", "options": ["100 km/h", "500 km/h", "2.100 km/h", "50 km/h"], "answer": 2 },
+      { "q": "Por que Tritão, lua de Netuno, é incomum?", "options": ["É quadrada", "Orbita em sentido retrógrado ao planeta", "É maior que a Terra", "É de ouro maciço"], "answer": 1 }
+    ]
+  },
+  "pluto": {
+    "easy": [
+      { "q": "Plutão foi rebaixado a planeta anão em qual ano?", "options": ["1999", "2006", "2012", "2020"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "Qual é o nome da maior lua de Plutão?", "options": ["Styx", "Caronte", "Nix", "Hidra"], "answer": 1 }
+    ]
+  },
+  "ceres": {
+    "easy": [
+      { "q": "Onde fica Ceres no sistema solar?", "options": ["Cinturão de Kuiper", "Cinturão de asteroides", "Órbita de Júpiter", "Órbita de Marte"], "answer": 1 }
+    ],
+    "medium": [
+      { "q": "O que a sonda Dawn descobriu em Ceres?", "options": ["Vulcões de lava", "Manchas brilhantes de sal e carbonato", "Oceanos de água líquida", "Vida microbiana"], "answer": 1 }
+    ]
+  }
+}
