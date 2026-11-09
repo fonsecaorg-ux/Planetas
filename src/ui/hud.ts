@@ -22,6 +22,7 @@ export interface HUDCallbacks {
   onProfile: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
+  onDiary: () => void;
   onExpedition: () => void;
   onPlaySound: (kind: 'click' | 'success' | 'error' | 'launch' | 'transition' | 'quiz1' | 'quiz2' | 'quiz3') => void;
   onSpeak: (text: string) => void;
@@ -64,24 +65,30 @@ export class HUD {
       <div class="hud">
         <div class="top-bar">
           <div class="brand interactive">✦ Explorador do Sistema Solar</div>
-          <div class="interactive" style="display:flex;gap:8px;align-items:center;">
+          <div class="interactive" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button class="btn" id="base-btn" style="font-size:0.75rem;padding:4px 8px;">🏢 Base</button>
-            <button class="btn" id="leaderboard-btn" title="Ranking de exploradores" style="font-size:0.75rem;padding:4px 8px;">🏆</button>
-            <button class="btn" id="badges-btn" title="Conquistas" style="font-size:0.75rem;padding:4px 8px;">🏅</button>
-            <button class="btn" id="expedition-btn" title="Expedições e Missão Semanal" style="font-size:0.75rem;padding:4px 8px;">🧭</button>
-            <button class="btn" id="daily-btn" title="Desafio do dia" style="font-size:0.75rem;padding:4px 8px;">📅</button>
-            <button class="btn" id="map-btn" title="Mapa de progresso" style="font-size:0.75rem;padding:4px 8px;">🗺️</button>
-            <button class="btn" id="profile-btn" title="Perfil do explorador" style="font-size:0.75rem;padding:4px 8px;">👤</button>
-            <select id="astro-select" style="padding:4px 8px;border-radius:6px;background:var(--panel);color:var(--fg);border:1px solid var(--panel-border);font-size:0.75rem;">
-              <option value="">Explorador</option>
-              ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
-            </select>
-            <div class="panel" style="padding:4px 10px;font-size:0.75rem;cursor:pointer;" id="xp-pill" title="XP e Nível">⭐ Nv.1</div>
-            <div class="panel" style="padding:4px 10px;font-size:0.75rem;" id="progress-pill">Progresso: 0/0</div>
+            <button class="btn" id="diary-btn" title="Diário de exploração" style="font-size:0.75rem;padding:4px 8px;">📖 Diário</button>
+            <button class="btn" id="map-btn" title="Mapa de progresso" style="font-size:0.75rem;padding:4px 8px;">🗺️ Mapa</button>
+            <div class="panel" style="padding:4px 8px;font-size:0.7rem;cursor:pointer;" id="xp-pill" title="Expedições e XP">⭐ Nv.1</div>
             <div class="scale-toggle">
               <button data-scale="visual" class="${this.scaleMode === 'visual' ? 'active' : ''}">Visual</button>
-              <button data-scale="real" class="${this.scaleMode === 'real' ? 'active' : ''}">Escala real</button>
+              <button data-scale="real" class="${this.scaleMode === 'real' ? 'active' : ''}">Real</button>
             </div>
+            <div style="position:relative;" id="more-wrap">
+              <button class="btn" id="more-btn" title="Mais opções" style="font-size:0.75rem;padding:4px 10px;">⋮</button>
+              <div id="more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:200;background:var(--panel,#1a2035);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:6px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+                <button class="btn" id="leaderboard-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🏆 Ranking</button>
+                <button class="btn" id="badges-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🏅 Conquistas</button>
+                <button class="btn" id="expedition-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🧭 Expedições</button>
+                <button class="btn" id="daily-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">📅 Desafio do dia</button>
+                <button class="btn" id="profile-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px;">👤 Perfil</button>
+                <select id="astro-select" style="width:100%;padding:4px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--fg);border:1px solid rgba(255,255,255,0.15);font-size:0.72rem;">
+                  <option value="">Escolher explorador</option>
+                  ${astronautsData.astronauts.map((a) => `<option value="${a.name}">${a.name} (${a.role})</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="panel" style="padding:3px 8px;font-size:0.68rem;" id="progress-pill">🔭 0/0</div>
             <span id="sync-dot" title="Sincronização na nuvem" style="font-size:0.8rem;opacity:0;transition:opacity 0.4s;"></span>
           </div>
         </div>
@@ -132,16 +139,26 @@ export class HUD {
     const astroSelect = this.root.querySelector('#astro-select') as HTMLSelectElement | null;
     astroSelect?.addEventListener('change', () => {
       const name = astroSelect.value;
-      if (name) this.callbacks.onAstronautSelect(name);
+      if (name) { this.callbacks.onAstronautSelect(name); this._closeMoreMenu(); }
     });
     this.root.querySelector('#base-btn')?.addEventListener('click', () => this.callbacks.onBase());
-    this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => this.callbacks.onLeaderboard());
-    this.root.querySelector('#badges-btn')?.addEventListener('click', () => this.callbacks.onBadges());
-    this.root.querySelector('#expedition-btn')?.addEventListener('click', () => this.callbacks.onExpedition());
-    this.root.querySelector('#daily-btn')?.addEventListener('click', () => this.callbacks.onDailyChallenge());
+    this.root.querySelector('#diary-btn')?.addEventListener('click', () => this.callbacks.onDiary());
+    this.root.querySelector('#leaderboard-btn')?.addEventListener('click', () => { this.callbacks.onLeaderboard(); this._closeMoreMenu(); });
+    this.root.querySelector('#badges-btn')?.addEventListener('click', () => { this.callbacks.onBadges(); this._closeMoreMenu(); });
+    this.root.querySelector('#expedition-btn')?.addEventListener('click', () => { this.callbacks.onExpedition(); this._closeMoreMenu(); });
+    this.root.querySelector('#daily-btn')?.addEventListener('click', () => { this.callbacks.onDailyChallenge(); this._closeMoreMenu(); });
     this.root.querySelector('#map-btn')?.addEventListener('click', () => this.callbacks.onProgressMap());
-    this.root.querySelector('#profile-btn')?.addEventListener('click', () => this.callbacks.onProfile());
+    this.root.querySelector('#profile-btn')?.addEventListener('click', () => { this.callbacks.onProfile(); this._closeMoreMenu(); });
     this.root.querySelector('#xp-pill')?.addEventListener('click', () => this.callbacks.onExpedition());
+
+    const moreBtn = this.root.querySelector('#more-btn') as HTMLElement | null;
+    const moreMenu = this.root.querySelector('#more-menu') as HTMLElement | null;
+    moreBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = moreMenu?.style.display !== 'none';
+      if (moreMenu) moreMenu.style.display = open ? 'none' : 'block';
+    });
+    document.addEventListener('click', () => this._closeMoreMenu(), { capture: true });
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
@@ -196,16 +213,24 @@ export class HUD {
       <button class="btn" id="speak-btn" style="margin-top:4px;width:100%;">🔊 Ouvir curiosidades</button>
 
       <div class="mission" style="margin-top:10px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-          <span style="font-weight:700;font-size:0.85rem;">🎯 Missão</span>
-          <div class="difficulty" style="margin-left:auto;">
-            <button data-diff="easy"   class="${this.difficulty === 'easy'   ? 'active' : ''}">${easyDone} Fácil</button>
-            <button data-diff="medium" class="${this.difficulty === 'medium' ? 'active' : ''}">${medDone} Médio</button>
-          </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;cursor:pointer;" id="mission-toggle">
+          <span style="font-size:0.85rem;">🎯</span>
+          <span style="font-weight:700;font-size:0.82rem;flex:1;">Missão opcional</span>
+          <span style="font-size:0.72rem;opacity:0.6;">${easyDone === '✓' || medDone === '✓' ? '✅ Concluída' : 'Quer investigar?'}</span>
+          <span id="mission-arrow" style="font-size:0.8rem;opacity:0.5;transition:transform 0.2s;">▼</span>
         </div>
-        <div class="q" id="mission-q"></div>
-        <div class="opts" id="mission-opts"></div>
-        <div id="mission-feedback" style="margin-top:6px;font-size:0.8rem;min-height:20px;"></div>
+        <div id="mission-body" style="display:none;padding-top:8px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <div class="difficulty" style="margin-left:auto;">
+              <button data-diff="easy"   class="${this.difficulty === 'easy'   ? 'active' : ''}">${easyDone} Fácil</button>
+              <button data-diff="medium" class="${this.difficulty === 'medium' ? 'active' : ''}">${medDone} Médio</button>
+            </div>
+          </div>
+          <div class="q" id="mission-q"></div>
+          <div class="opts" id="mission-opts"></div>
+          <div id="mission-feedback" style="margin-top:6px;font-size:0.8rem;min-height:20px;"></div>
+          <button id="mission-skip" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,0.35);font-size:0.72rem;cursor:pointer;padding:0;">Pular missão — continuar explorando</button>
+        </div>
       </div>
 
       <div style="margin-top:10px;display:flex;gap:6px;">
@@ -229,6 +254,21 @@ export class HUD {
     });
 
     this.renderMission(body);
+
+    // Toggle da missão colapsável
+    const missionToggle = card.querySelector('#mission-toggle') as HTMLElement | null;
+    const missionBody = card.querySelector('#mission-body') as HTMLElement | null;
+    const missionArrow = card.querySelector('#mission-arrow') as HTMLElement | null;
+    missionToggle?.addEventListener('click', () => {
+      const open = missionBody?.style.display !== 'none';
+      if (missionBody) missionBody.style.display = open ? 'none' : 'block';
+      if (missionArrow) missionArrow.style.transform = open ? '' : 'rotate(180deg)';
+    });
+    card.querySelector('#mission-skip')?.addEventListener('click', () => {
+      if (missionBody) missionBody.style.display = 'none';
+      if (missionArrow) missionArrow.style.transform = '';
+    });
+
     card.querySelector('#speak-btn')?.addEventListener('click', () => {
       this.callbacks.onSpeak(body.curiosities.join('. '));
     });
@@ -1088,6 +1128,54 @@ export class HUD {
       bubble.style.opacity = '0';
       setTimeout(() => bubble.remove(), 650);
     }, 5500);
+  }
+
+  private _closeMoreMenu() {
+    const menu = this.root.querySelector('#more-menu') as HTMLElement | null;
+    if (menu) menu.style.display = 'none';
+  }
+
+  showDiary(entries: Array<{ bodyId: string; name: string; type: string; visitedAt: string; curiosity: string }>) {
+    const card = this.root.querySelector('#planet-card') as HTMLElement;
+    card.classList.add('visible');
+    const typeMap: Record<string, string> = { star: '☀️ Estrela', planet: '🪐 Planeta', dwarf: '🪨 Anão', moon: '🌙 Lua', belt: '☁️ Cinturão' };
+    const bodyColor: Record<string, string> = { star: '#ffd700', planet: '#7dd3fc', dwarf: '#a78bfa', moon: '#d1d5db', belt: '#9ca3af' };
+
+    const rows = entries.length === 0
+      ? `<div style="text-align:center;opacity:0.5;padding:32px 0;font-size:0.85rem;">Você ainda não visitou nenhum planeta.<br><br>Clique em qualquer planeta para explorar!</div>`
+      : entries.map((e) => {
+        const date = new Date(e.visitedAt).toLocaleDateString('pt-BR');
+        const color = bodyColor[e.type] ?? '#7dd3fc';
+        const typeLabel = typeMap[e.type] ?? e.type;
+        return `
+          <div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 13px;margin-bottom:8px;background:rgba(255,255,255,0.03);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-weight:700;font-size:0.9rem;">${e.name}</span>
+              <span style="font-size:0.65rem;background:${color}22;color:${color};border:1px solid ${color}44;border-radius:12px;padding:1px 7px;">${typeLabel}</span>
+            </div>
+            <p style="font-size:0.76rem;opacity:0.75;margin:0 0 7px;line-height:1.4;">• ${e.curiosity}</p>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:0.65rem;opacity:0.45;">Visitado em ${date}</span>
+              <button class="btn diary-travel-btn" data-id="${e.bodyId}" style="font-size:0.68rem;padding:3px 8px;">🚀 Viajar</button>
+            </div>
+          </div>`;
+      }).join('');
+
+    card.innerHTML = `
+      ${this.cardHeader('📖 Diário de Exploração')}
+      <div style="font-size:0.72rem;color:#7dd3fc;margin-bottom:10px;">
+        ${entries.length} ${entries.length === 1 ? 'local visitado' : 'locais visitados'}
+      </div>
+      <div style="max-height:65vh;overflow-y:auto;padding-right:4px;">${rows}</div>
+    `;
+    card.querySelector('#close-btn')?.addEventListener('click', () => this.callbacks.onCloseCard());
+    card.querySelector('#back-btn')?.addEventListener('click', () => this.callbacks.onBack());
+    card.querySelectorAll('.diary-travel-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).dataset.id!;
+        this.callbacks.onSelectBody(id);
+      });
+    });
   }
 
   updateProgressPill() {

@@ -1,4 +1,4 @@
-import type { ProgressState, ScaleMode, Difficulty, MissionRecord } from '@/data/types';
+import type { ProgressState, ScaleMode, Difficulty, MissionRecord, DiaryEntry } from '@/data/types';
 
 // XP/Level system
 export const XP_LEVELS = [
@@ -139,6 +139,18 @@ export class ProgressStore {
     this.state.earnedBadges = [...(this.state.earnedBadges ?? []), id];
     this.save();
     return true;
+  }
+
+  /** Registra entrada no diário (uma por corpo; ignora duplicatas). */
+  addDiaryEntry(entry: DiaryEntry) {
+    const entries = this.state.diaryEntries ?? [];
+    if (entries.some((e) => e.bodyId === entry.bodyId)) return;
+    this.state.diaryEntries = [entry, ...entries];
+    this.save();
+  }
+
+  getDiaryEntries(): DiaryEntry[] {
+    return this.state.diaryEntries ?? [];
   }
 
   /** Adiciona XP e recalcula nível. Retorna resultado com flag de level-up. */

@@ -130,6 +130,7 @@ export interface ProgressState {
   activeAstronaut: string | null;
   journeyDone?: boolean;
   earnedBadges?: string[];
+  diaryEntries?: DiaryEntry[];
   // Replayability systems
   xp?: number;
   level?: number;
@@ -138,6 +139,14 @@ export interface ProgressState {
   weeklyMissionAnswered?: boolean[];
   weeklyMissionCorrect?: boolean[];
   chapterStepsCompleted?: Record<string, string[]>;
+}
+
+export interface DiaryEntry {
+  bodyId: string;
+  name: string;
+  type: BodyType;
+  visitedAt: string; // ISO 8601
+  curiosity: string; // primeira curiosidade do corpo
 }
 
 export interface HiddenObjectData {

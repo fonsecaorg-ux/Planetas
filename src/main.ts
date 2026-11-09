@@ -258,6 +258,16 @@ function awardXP(amount: number) {
   }
 }
 
+function recordDiaryVisit(bodyData: BodyData) {
+  store.addDiaryEntry({
+    bodyId: bodyData.id,
+    name: bodyData.name,
+    type: bodyData.type,
+    visitedAt: new Date().toISOString(),
+    curiosity: bodyData.curiosities[0] ?? '',
+  });
+}
+
 function checkChapterProgress() {
   const state = store.get();
   const visited = state.visited;
@@ -359,6 +369,7 @@ const hud = new HUD(uiRoot, {
     if (astro) store.setActiveAstronaut(astro.id);
     hud.showCertificate(name, store.get().certificateDate!);
   },
+  onDiary: () => hud.showDiary(store.getDiaryEntries()),
   onExpedition: () => openExpeditionPanel(),
   onBase: () => { if (currentScene === 'base') goBackToHub(); else switchToBase(); },
   onPlaySound: (kind) => {
@@ -694,7 +705,10 @@ function selectBody(id: string) {
     hub.moonBase!.moonGroup.getWorldPosition(moonPos);
     const wasNew = !store.get().visited.includes('moon');
     store.markVisited('moon');
-    if (wasNew) awardXP(10);
+    if (wasNew) {
+      awardXP(10);
+      store.addDiaryEntry({ bodyId: 'moon', name: 'Lua', type: 'moon', visitedAt: new Date().toISOString(), curiosity: 'A Lua é o único astro além da Terra onde humanos já pisaram — durante as missões Apollo entre 1969 e 1972.' });
+    }
     checkChapterProgress();
     audio.transition();
     viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
@@ -790,6 +804,7 @@ function selectBody(id: string) {
     currentScene = 'planet';
     selectedBodyId = id;
     audio.arrival(bodyData.type);
+    recordDiaryVisit(bodyData);
     const line = (narrativeLines as Record<string, { astronaut: string; color: string; text: string }>)[id];
     if (line) hud.showNarrativeBubble(line.astronaut, line.color, line.text);
     hud.showPlanet(bodyData);
