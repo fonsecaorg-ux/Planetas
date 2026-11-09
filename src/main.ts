@@ -260,7 +260,7 @@ const hud = new HUD(uiRoot, {
     if (astro) store.setActiveAstronaut(astro.id);
     hud.showCertificate(name, store.get().certificateDate!);
   },
-  onBase: () => switchToBase(),
+  onBase: () => { if (currentScene === 'base') goBackToHub(); else switchToBase(); },
   onPlaySound: (kind) => {
     if (kind === 'click') audio.click();
     else if (kind === 'success') audio.success();
@@ -540,6 +540,31 @@ function selectBody(id: string) {
     }
     return;
   }
+  if (id === 'rocket:launch') {
+    hud.showStation();
+    const card = document.querySelector('#planet-card') as HTMLElement;
+    if (card) {
+      const done = store.get().journeyDone;
+      card.innerHTML = `
+        ${cardHeader('🚀 Veículo de Lançamento')}
+        <div class="subtitle">${done ? 'Missão já concluída' : 'Foguete pronto para lançamento'}</div>
+        <p style="font-size:0.85rem;opacity:0.85;margin:8px 0;">
+          ${done
+            ? 'Você já completou a missão de treinamento. Pode lançar novamente ou explorar livremente.'
+            : 'Complete o treinamento de missão antes do lançamento. Responda 3 perguntas sobre o Sistema Solar.'}
+        </p>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn" id="launch-mission-btn">🚀 ${done ? 'Lançar novamente' : 'Iniciar missão'}</button>
+          <button class="btn" id="hub-btn">🌌 Sistema Solar</button>
+        </div>
+      `;
+      card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
+      card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
+      card.querySelector('#launch-mission-btn')?.addEventListener('click', () => { closeCard(); startBaseJourney(); });
+      card.querySelector('#hub-btn')?.addEventListener('click', () => goBackToHub());
+    }
+    return;
+  }
   if (id.startsWith('car:')) {
     const card = document.querySelector('#planet-card') as HTMLElement;
     if (card) {
@@ -721,17 +746,10 @@ function switchToBase() {
   ajustarLimitesControles();
   posicionarObservador(new THREE.Vector3(0, 12, 30), new THREE.Vector3(0, 2, 0));
   hud.hidePlanet();
-  hud.setScaleIndicator('Base de lançamento terrestre — Centro de Controle');
+  hud.setScaleIndicator('Base de lançamento — clique em 🏢 para voltar ao Sistema Solar');
 
-  // Inicia a jornada terrestre se ainda não foi concluída
-  if (!store.get().journeyDone && baseScene) {
-    baseScene.startJourney(
-      buildBaseQuestions(),
-      () => { store.setJourneyDone(); goBackToHub(); },
-      (pos, target) => { viajar(pos, target); },
-    );
-    rebuildSelectable();
-  } else if (store.get().journeyDone && baseScene) {
+  // Se missão já concluída, mostra painel de retorno — sem travar
+  if (store.get().journeyDone && baseScene) {
     const s = store.get();
     baseScene.showReturnState({
       name: s.certificateName || 'Explorador',
@@ -739,8 +757,18 @@ function switchToBase() {
       missions: Object.keys(s.completedMissions).length,
       score: Object.values(s.completedMissions).reduce((acc, m: any) => acc + (m.score || 0), 0),
     });
-    rebuildSelectable();
   }
+  rebuildSelectable();
+}
+
+function startBaseJourney() {
+  if (!baseScene) return;
+  baseScene.startJourney(
+    buildBaseQuestions(),
+    () => { store.setJourneyDone(); goBackToHub(); },
+    (pos, target) => { viajar(pos, target); },
+  );
+  rebuildSelectable();
 }
 
 

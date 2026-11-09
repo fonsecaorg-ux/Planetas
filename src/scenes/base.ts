@@ -976,6 +976,16 @@ export class BaseScene {
     this.launchVehicle = this._buildLaunchVehicle();
     this.group.add(this.launchVehicle);
 
+    // Hitbox do foguete para clique
+    const rocketHb = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 1.2, 15, 8),
+      new THREE.MeshBasicMaterial({ visible: false }),
+    );
+    rocketHb.position.set(14, 8, -5);
+    rocketHb.userData = { bodyId: 'rocket:launch' };
+    this.group.add(rocketHb);
+    this.hitboxes.push({ mesh: rocketHb, id: 'rocket:launch' });
+
     // Estrutura modular extra (decorativa) ao lado do launch pad
     _gltf.load('/models/station_structure.glb', (gltf) => {
       const model = gltf.scene;
