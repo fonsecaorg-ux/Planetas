@@ -113,12 +113,57 @@ export class VRNavPanel {
       this.hitboxes.push(hitbox);
     });
 
-    // Posicionar painel: ligeiramente abaixo e à frente do usuário no espaço local do rig
-    this.group.position.set(0, -14, -50);
-    // Inclinar levemente para que fique mais natural ao olhar para baixo
-    this.group.rotation.x = 0.28;
+    // Painel logo abaixo do centro da visão — ângulo ~15° para baixo, não precisa
+    // inclinar muito a cabeça. Profundidade 48 = objetos do sistema solar ficam atrás.
+    this.group.position.set(0, -5, -48);
+    this.group.rotation.x = 0.14; // leve inclinação para leitura confortável
 
     rig.add(this.group);
+
+    // Indicador pulsante "▼ DESTINOS" visível logo abaixo do centro durante ~8 s
+    this._addHint(rig);
+  }
+
+  private _addHint(rig: THREE.Group) {
+    const c = document.createElement('canvas');
+    c.width = 320; c.height = 80;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = 'rgba(0,10,30,0.82)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, 320, 80, 16);
+    ctx.fill();
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = 'bold 28px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('▼  olhe aqui para navegar', 160, 32);
+    ctx.font = '20px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText('grade de planetas logo abaixo', 160, 60);
+
+    const tex = new THREE.CanvasTexture(c);
+    this.textures.push(tex);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 1 });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(10, 2.5, 1);
+    // Posicionado entre o centro e o painel — bem visível
+    sprite.position.set(0, -1.5, -44);
+    sprite.renderOrder = 9000;
+    rig.add(sprite);
+    this.textures.push(tex);
+
+    // Pulsa 4 vezes e some
+    let t = 0;
+    const pulse = () => {
+      t += 0.05;
+      mat.opacity = 0.5 + Math.abs(Math.sin(t * 3)) * 0.5;
+      if (t < 8) requestAnimationFrame(pulse);
+      else {
+        mat.opacity = 0;
+        rig.remove(sprite);
+        tex.dispose();
+      }
+    };
+    requestAnimationFrame(pulse);
   }
 
   private _roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
