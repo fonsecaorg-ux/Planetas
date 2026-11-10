@@ -432,7 +432,9 @@ const hud = new HUD(uiRoot, {
   }),
   xrRenderer: engine.renderer,
 }, progress);
-const mainBodies = data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet');
+// Lua fora: o painel dela não tem quiz (badge all-missions ficaria impossível)
+// e incluí-la no requisito do portal regrediria quem já o desbloqueou
+const mainBodies = data.bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet' && b.type !== 'moon');
 hud.setBodyCount(mainBodies.length);
 hud.setMainBodyIds(mainBodies.map((b) => b.id));
 cloudSync.onStatusChange = (s) => hud.setSyncStatus(s);
@@ -481,7 +483,26 @@ const xr = new XRManager({
   renderer: engine.renderer,
   camera: engine.camera,
   onGazeSelect: (obj) => {
-    if (obj && (obj as any).userData?.bodyId) selectBody((obj as any).userData.bodyId);
+    if (!obj) return;
+    const ud = (obj as any).userData ?? {};
+    if (ud.navToggle) {
+      vrNavPanel?.setExpanded(true);
+      rebuildSelectable();
+      return;
+    }
+    if (ud.navClose) {
+      vrNavPanel?.setExpanded(false);
+      rebuildSelectable();
+      return;
+    }
+    if (ud.bodyId) {
+      // Destino escolhido no menu: recolhe antes de viajar para não ficar na frente
+      if (vrNavPanel?.expanded) {
+        vrNavPanel.setExpanded(false);
+        rebuildSelectable();
+      }
+      selectBody(ud.bodyId);
+    }
   },
 });
 
@@ -1168,6 +1189,7 @@ engine.onUpdate((dt) => {
     skybox.position.copy(_camPos);
     skybox.scale.setScalar((engine.camera.far * 0.8) / 950);
   }
+  if (engine.isPresenting) vrNavPanel?.update(dt);
   xr.update(dt, selectable);
 });
 

@@ -16,9 +16,11 @@ const bodies = (corpos as unknown as { bodies: BodyData[] }).bodies;
 const sol = bodies.find((b) => b.id === 'sun')!;
 const terra = bodies.find((b) => b.id === 'earth')!;
 
-// Corpos que orbitam no hub: tudo menos o Sol, cinturões e exoplanetas
+// Corpos que orbitam o Sol no hub: tudo menos o próprio Sol, cinturões,
+// exoplanetas e luas (a Lua orbita a Terra via MoonBase; sua distanceKm é
+// relativa à Terra, não ao Sol)
 const orbitantes = bodies
-  .filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet')
+  .filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet' && b.type !== 'moon')
   .sort((a, b) => a.distanceKm - b.distanceKm);
 
 const MODOS: ScaleMode[] = ['visual', 'real'];

@@ -102,7 +102,10 @@ export class XRManager {
     const origin = new THREE.Vector2(0, 0);
     this.raycaster.setFromCamera(origin, this.camera);
     const hits = this.raycaster.intersectObjects(selectable, true);
-    const target = hits.length ? hits[0].object : null;
+    let target = hits.length ? hits[0].object : null;
+    // Superfícies gazeInert bloqueiam o raio (nada atrás é alcançado) mas não
+    // acumulam dwell nem disparam seleção — ex.: fundo do menu de destinos
+    if (target && (target as any).userData?.gazeInert) target = null;
 
     // Controle Bluetooth (VR Box): com gamepad conectado, o botão principal
     // seleciona na hora e o dwell fica desligado para não disparar sozinho
