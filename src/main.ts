@@ -24,7 +24,7 @@ import astronautsData from '@/data/astronauts.json';
 import narrativeLines from '@/data/narrativeLines.json';
 import { HIDDEN_OBJECTS } from '@/data/hiddenObjects';
 import { CHAPTERS } from '@/data/chapters';
-import { VRNavPanel } from '@/xr/vrNavPanel';
+import { VRStartMenu } from '@/xr/vrStartMenu';
 
 // --- Sistema de Badges ---
 const BADGES = [
@@ -485,22 +485,17 @@ const xr = new XRManager({
   onGazeSelect: (obj) => {
     if (!obj) return;
     const ud = (obj as any).userData ?? {};
-    if (ud.navToggle) {
-      vrNavPanel?.setExpanded(true);
+    if (ud.vrMode) {
+      vrStartMenu?.dispose();
+      vrStartMenu = null;
       rebuildSelectable();
-      return;
-    }
-    if (ud.navClose) {
-      vrNavPanel?.setExpanded(false);
-      rebuildSelectable();
+      if (ud.vrMode === 'tour') startVRTour();
+      else audio.speak('Exploração livre. Olhe fixamente num planeta para viajar até ele.');
       return;
     }
     if (ud.bodyId) {
-      // Destino escolhido no menu: recolhe antes de viajar para não ficar na frente
-      if (vrNavPanel?.expanded) {
-        vrNavPanel.setExpanded(false);
-        rebuildSelectable();
-      }
+      // Olhar num planeta durante o passeio assume o controle manual
+      stopVRTour();
       selectBody(ud.bodyId);
     }
   },
@@ -551,9 +546,9 @@ function rebuildSelectable() {
   if (hub.exoPortal?.unlocked) selectable.push(hub.exoPortal.hitbox);
   // Objetos ocultos
   for (const hb of hub.hiddenObjectHitboxes) selectable.push(hb);
-  // Painel de navegação VR (apenas em sessão ativa)
-  if (engine.isPresenting && vrNavPanel) {
-    for (const hb of vrNavPanel.hitboxes) selectable.push(hb);
+  // Menu de entrada do VR (só enquanto não escolheu o modo)
+  if (engine.isPresenting && vrStartMenu) {
+    for (const hb of vrStartMenu.hitboxes) selectable.push(hb);
   }
 }
 rebuildSelectable();
@@ -1151,8 +1146,49 @@ function buildGrandeMissaoQuestions(): MissionQuestion[] {
   return all.slice(0, 10);
 }
 
-// --- Sessão VR: posição horizontal, painel de navegação, devolve ao sair ---
-let vrNavPanel: VRNavPanel | null = null;
+// --- Sessão VR: menu de modo na entrada, passeio automático opcional ---
+let vrStartMenu: VRStartMenu | null = null;
+
+// Passeio automático: a nave viaja sozinha de corpo em corpo com narração.
+// Qualquer gaze num planeta interrompe e devolve o controle manual.
+const TOUR_STOPS = ['sun', 'mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const TOUR_DWELL_S = 20;
+let vrTour: { i: number; t: number } | null = null;
+
+function startVRTour() {
+  vrTour = { i: 0, t: 0 };
+  audio.speak('Iniciando passeio pelo Sistema Solar. Relaxe e aproveite a viagem!');
+  tourVisit(TOUR_STOPS[0]);
+}
+
+function stopVRTour() {
+  if (!vrTour) return;
+  vrTour = null;
+  audio.stopSpeaking();
+}
+
+function tourVisit(id: string) {
+  const bodyData = data.bodies.find((b) => b.id === id);
+  if (!bodyData) return;
+  audio.transition();
+  if (id === 'moon') {
+    trocarFoco('earth');
+    hub.applyFloatingOrigin();
+    hub.group.updateMatrixWorld(true);
+    const moonPos = new THREE.Vector3();
+    hub.moonBase!.moonGroup.getWorldPosition(moonPos);
+    viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
+      audio.arrival('moon');
+      audio.speak(`Lua. ${bodyData.curiosities[0] ?? ''}`);
+    });
+    return;
+  }
+  trocarFoco(id);
+  viajar(pontoDeChegada(new THREE.Vector3()), ORIGEM, () => {
+    audio.arrival(bodyData.type);
+    audio.speak(`${bodyData.name}. ${bodyData.curiosities[0] ?? ''}`);
+  });
+}
 
 engine.renderer.xr.addEventListener('sessionstart', () => {
   transition = null;
@@ -1163,15 +1199,16 @@ engine.renderer.xr.addEventListener('sessionstart', () => {
   // — o usuário vê os planetas distribuídos à frente em vez de precisar olhar para cima
   const vrPos = new THREE.Vector3(0, 12, 480);
   posicionarObservador(vrPos, ORIGEM);
-  // Painel de navegação 3D fixo ao rig
-  vrNavPanel?.dispose();
-  vrNavPanel = new VRNavPanel(engine.rig, data.bodies);
+  stopVRTour();
+  vrStartMenu?.dispose();
+  vrStartMenu = new VRStartMenu(engine.rig);
   rebuildSelectable();
 });
 
 engine.renderer.xr.addEventListener('sessionend', () => {
-  vrNavPanel?.dispose();
-  vrNavPanel = null;
+  stopVRTour();
+  vrStartMenu?.dispose();
+  vrStartMenu = null;
   const pos = engine.rig.position.clone();
   engine.rig.position.set(0, 0, 0);
   engine.rig.rotation.set(0, 0, 0);
@@ -1240,7 +1277,18 @@ engine.onUpdate((dt) => {
     skybox.position.copy(_camPos);
     skybox.scale.setScalar((engine.camera.far * 0.8) / 950);
   }
-  if (engine.isPresenting) vrNavPanel?.update(dt);
+  if (engine.isPresenting) {
+    vrStartMenu?.update(dt);
+    // Passeio automático: avança para o próximo corpo após o tempo de contemplação
+    if (vrTour) {
+      vrTour.t += dt;
+      if (vrTour.t >= TOUR_DWELL_S) {
+        vrTour.t = 0;
+        vrTour.i = (vrTour.i + 1) % TOUR_STOPS.length;
+        tourVisit(TOUR_STOPS[vrTour.i]);
+      }
+    }
+  }
   xr.update(dt, selectable);
 });
 
