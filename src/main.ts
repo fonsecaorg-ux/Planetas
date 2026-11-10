@@ -721,6 +721,11 @@ function atualizarIndicadorEscala(bodyData?: BodyData) {
 
 function selectBody(id: string) {
   audio.click();
+  // Destino celeste escolhido estando na base (ex.: "Viajar" do Diário):
+  // volta ao hub primeiro, senão a viagem aconteceria numa cena que não existe
+  const alvoCeleste = id === 'moon' || id === 'station'
+    || data.bodies.some((b) => b.id === id && b.type !== 'belt' && b.type !== 'exoplanet');
+  if (currentScene === 'base' && alvoCeleste) goBackToHub();
   if (id === 'station') {
     store.markVisited('station');
     hud.updateProgress(store.get());
@@ -930,9 +935,53 @@ function showMoonPanel() {
       <div style="font-size:0.85rem;font-weight:bold;color:#ffd700;margin-bottom:5px">🚩 Missão Bandeira do Brasil</div>
       <div style="font-size:0.8rem;line-height:1.5;opacity:0.95"><b>JUAN_GUI7</b>, Comandante Lunar, pousou na superfície e plantou a Bandeira do Brasil — primeiro explorador brasileiro a conquistar a Lua.</div>
     </div>
+    <div class="mission" style="margin-top:10px;" id="moon-mission"></div>
   `;
   card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
   card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
+  renderMoonQuiz(card.querySelector('#moon-mission') as HTMLElement);
+}
+
+/** Quiz da Lua dentro do painel — mesma mecânica das missões dos planetas. */
+function renderMoonQuiz(container: HTMLElement | null) {
+  const moonData = data.bodies.find((b) => b.id === 'moon');
+  if (!container || !moonData) return;
+  const q = moonData.mission.easy;
+  const jaFeita = store.get().completedMissions['moon']?.easy?.correct;
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <span style="font-size:0.85rem;">🎯</span>
+      <span style="font-weight:700;font-size:0.82rem;flex:1;">Missão da Lua</span>
+      ${jaFeita ? '<span style="font-size:0.72rem;color:#22c55e;">✅ Concluída</span>' : ''}
+    </div>
+    <div class="q">${q.q}</div>
+    <div class="opts">
+      ${q.options.map((o, i) => `<button class="opt" data-idx="${i}">${o}</button>`).join('')}
+    </div>
+    <div id="moon-fb" style="margin-top:6px;font-size:0.8rem;min-height:18px;"></div>
+  `;
+  container.querySelectorAll('.opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if ((btn as HTMLElement).dataset.locked === '1') return;
+      const idx = parseInt((btn as HTMLElement).dataset.idx!);
+      const correct = idx === q.answer;
+      container.querySelectorAll('.opt').forEach((b, i) => {
+        b.classList.toggle('correct', i === q.answer);
+        if (i === idx && !correct) b.classList.add('wrong');
+        (b as HTMLElement).dataset.locked = '1';
+      });
+      const fb = container.querySelector('#moon-fb') as HTMLElement;
+      fb.textContent = correct ? '✅ Correto! Você ganhou XP!' : '❌ Quase! A resposta certa está em verde.';
+      fb.style.color = correct ? '#22c55e' : '#ef4444';
+      if (correct) {
+        audio.success();
+        if (!jaFeita) awardXP(15);
+      } else {
+        audio.error();
+      }
+      store.recordMission('moon', 'easy', correct);
+    });
+  });
 }
 
 /** Fecha o painel de informações sem mover a câmera. */
@@ -1001,6 +1050,7 @@ function goBackToHub() {
   trocarFoco('sun');
   rebuildSelectable();
   hud.hidePlanet();
+  hud.setBaseButtonMode(false);
   atualizarIndicadorEscala();
   if (vindoDaBase) {
     posicionarObservador(VISTA_GERAL[scaleMode], ORIGEM);
@@ -1029,7 +1079,8 @@ function switchToBase() {
   ajustarLimitesControles();
   posicionarObservador(new THREE.Vector3(-5, 18, 42), new THREE.Vector3(8, 4, -5));
   hud.hidePlanet();
-  hud.setScaleIndicator('Base de lançamento — clique em 🏢 para voltar ao Sistema Solar');
+  hud.setBaseButtonMode(true);
+  hud.setScaleIndicator('Base de lançamento — toque em 🌌 Espaço para voltar ao Sistema Solar');
 
   // Se missão já concluída, mostra painel de retorno — sem travar
   if (store.get().journeyDone && baseScene) {

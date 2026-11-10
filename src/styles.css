@@ -391,3 +391,4 @@ html, body {
 @media (orientation: portrait) {
   #rotate-hint { display: flex; }
 }
+#rotate-hint.dismissed { display: none !important; }

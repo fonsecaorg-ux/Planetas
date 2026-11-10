@@ -115,7 +115,8 @@ export class HUD {
       </div>
       <div id="rotate-hint">
         <div id="rotate-hint__icon">📱</div>
-        <p>Para a melhor experiência no VR Box, gire o celular para o modo <strong>paisagem</strong>.</p>
+        <p>Para a melhor experiência, gire o celular para o modo <strong>paisagem</strong>.</p>
+        <p style="font-size:0.8rem;opacity:0.6;">👆 Ou toque aqui para continuar assim mesmo</p>
       </div>
       <div id="hud-reveal" title="Duplo toque para mostrar o menu">⊙ mostrar menu</div>
     `;
@@ -143,6 +144,16 @@ export class HUD {
 
     // Botão revelador: toque único mostra HUD novamente
     document.getElementById('hud-reveal')?.addEventListener('click', () => this.toggleHUD());
+
+    // Aviso de rotação pode ser dispensado com um toque (lembra na sessão)
+    const rotateHint = this.root.querySelector('#rotate-hint') as HTMLElement | null;
+    if (rotateHint) {
+      try { if (sessionStorage.getItem('rotate-hint-off')) rotateHint.classList.add('dismissed'); } catch { /* */ }
+      rotateHint.addEventListener('click', () => {
+        rotateHint.classList.add('dismissed');
+        try { sessionStorage.setItem('rotate-hint-off', '1'); } catch { /* */ }
+      });
+    }
 
     const astroSelect = this.root.querySelector('#astro-select') as HTMLSelectElement | null;
     astroSelect?.addEventListener('change', () => {
@@ -174,6 +185,12 @@ export class HUD {
     });
   }
 
+  /** Alterna o rótulo do botão Base conforme a cena ativa. */
+  setBaseButtonMode(inBase: boolean) {
+    const btn = this.root.querySelector('#base-btn') as HTMLElement | null;
+    if (btn) btn.textContent = inBase ? '🌌 Espaço' : '🏢 Base';
+  }
+
   toggleHUD() {
     this.hudVisible = !this.hudVisible;
     const hud = this.root.querySelector('.hud') as HTMLElement | null;
@@ -196,7 +213,7 @@ export class HUD {
     const satList = body.satellites?.map((s) => s.name).join(', ') || '—';
     const typeMap: Record<string, string> = { star: 'Estrela', planet: 'Planeta', dwarf: 'Planeta anão', belt: 'Cinturão', moon: 'Lua', exoplanet: 'Exoplaneta' };
     const typeLabel = typeMap[body.type] ?? 'Corpo celeste';
-    const bodyEmoji = body.type === 'star' ? '☀️' : body.type === 'dwarf' ? '🪨' : '🪐';
+    const bodyEmoji = body.type === 'star' ? '☀️' : body.type === 'dwarf' ? '🪨' : body.type === 'moon' ? '🌙' : '🪐';
     const prog = this.progress.completedMissions[body.id];
     const easyDone  = prog?.easy?.correct  ? '✓' : '○';
     const medDone   = prog?.medium?.correct ? '✓' : '○';
@@ -207,7 +224,12 @@ export class HUD {
       <!-- Faixa colorida com tipo e distância -->
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
         <span style="background:${body.color};color:#000;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;">${typeLabel.toUpperCase()}</span>
-        <span style="font-size:0.75rem;opacity:0.7;">${body.distanceAU} UA · ${(body.distanceKm / 1e6).toFixed(1)} M km</span>
+        <span style="font-size:0.75rem;opacity:0.7;">${
+          body.type === 'exoplanet' ? `📡 ${(body.distanceAU / 63241).toFixed(1)} anos-luz da Terra`
+          : body.type === 'moon' ? `${body.distanceKm.toLocaleString('pt-BR')} km da Terra`
+          : body.distanceAU === 0 ? 'Centro do Sistema Solar'
+          : `${body.distanceAU} UA · ${(body.distanceKm / 1e6).toFixed(1)} milhões de km do Sol`
+        }</span>
         <span style="margin-left:auto;font-size:0.75rem;opacity:0.6;">Missões: ${easyDone} Fácil &nbsp; ${medDone} Médio</span>
       </div>
 
@@ -337,10 +359,23 @@ export class HUD {
           (b as HTMLElement).dataset.locked = '1';
         });
         const fb = this.root.querySelector('#mission-feedback') as HTMLElement;
-        fb.textContent = correct ? '✅ Correto!' : '❌ Tente novamente.';
         fb.style.color = correct ? '#22c55e' : '#ef4444';
+        if (correct) {
+          fb.textContent = '✅ Correto! Você ganhou XP!';
+          this.updateProgressPill();
+        } else {
+          fb.textContent = '❌ Quase! A resposta certa está em verde.';
+          const retry = document.createElement('button');
+          retry.textContent = '🔄 Tentar com outra pergunta';
+          retry.style.cssText = 'display:block;margin-top:6px;padding:6px 12px;border-radius:7px;border:1px solid rgba(125,211,252,0.4);background:rgba(125,211,252,0.12);color:#7dd3fc;font-size:0.75rem;cursor:pointer;';
+          retry.addEventListener('click', () => {
+            this.selectedQuestions.delete(key);
+            this.renderMission(body);
+            fb.textContent = '';
+          });
+          fb.appendChild(retry);
+        }
         this.callbacks.onPlaySound(correct ? 'success' : 'error');
-        if (correct) this.updateProgressPill();
       });
     });
   }
@@ -612,8 +647,11 @@ export class HUD {
             <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
               <b>🔍 Objetos ocultos</b> — procure bolinhas brilhantes nos planetas para ganhar XP!
             </div>
-            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;">
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
               <b>🎯 Missões</b> — cada planeta tem perguntas opcionais. Responda para evoluir!
+            </div>
+            <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 14px;">
+              <b>👆👆 Toque 2× na tela</b> — esconde os menus para ver só o espaço. Toque 2× de novo para voltar.
             </div>
           </div>`,
         nextLabel: 'Escolher explorador →',
@@ -931,9 +969,10 @@ export class HUD {
       const pct = Math.round((current / TOTAL) * 100);
       overlay.innerHTML = `
         <div style="max-width:520px;width:100%;color:#e8eef7;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
             <span style="font-size:0.9rem;color:#7dd3fc;font-weight:700;">🎯 Grande Missão Final</span>
             <span style="font-size:0.85rem;opacity:0.7;">Pergunta ${current + 1} / ${TOTAL}</span>
+            <button id="gm-quit" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕</button>
           </div>
           <div style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;margin-bottom:16px;overflow:hidden;">
             <div style="width:${pct}%;height:100%;background:#6366f1;border-radius:3px;transition:width 0.3s;"></div>
@@ -945,6 +984,7 @@ export class HUD {
           <div id="gm-fb" style="min-height:24px;margin-top:10px;font-size:0.85rem;text-align:center;"></div>
         </div>
       `;
+      overlay.querySelector('#gm-quit')?.addEventListener('click', () => overlay.remove());
       overlay.querySelectorAll('.gm-opt').forEach((btn) => {
         btn.addEventListener('click', () => {
           const idx = parseInt((btn as HTMLElement).dataset.idx!);
@@ -1151,12 +1191,14 @@ export class HUD {
     const rows = relevant.map((b) => {
       const v = visitedSet.has(b.id);
       const rec = state.completedMissions[b.id];
-      const easy   = rec?.easy?.correct   ? '✅' : (rec?.easy   ? '❌' : '○');
-      const medium = rec?.medium?.correct ? '✅' : (rec?.medium ? '❌' : '○');
+      const mCount = (rec?.easy?.correct ? 1 : 0) + (rec?.medium?.correct ? 1 : 0);
+      const missionCell = mCount === 2 ? '<span style="color:#22c55e;">🎯 2/2</span>'
+        : mCount === 1 ? '<span style="color:#fbbf24;">🎯 1/2</span>'
+        : '<span style="opacity:0.35;">🎯 0/2</span>';
       const dot = typeColors[b.type] ?? '#888';
       const label = typeLabel[b.type] ?? '';
       return `
-        <div class="pm-row" data-id="${b.id}" style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
+        <div class="pm-row" data-id="${b.id}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;
           background:${v ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'};
           border:1px solid ${v ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'};margin-bottom:5px;
           cursor:pointer;transition:background 0.15s;"
@@ -1164,10 +1206,9 @@ export class HUD {
           onmouseout="this.style.background='${v ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'}'">
           <div style="width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0;"></div>
           <div style="flex:1;font-size:0.88rem;font-weight:${v ? '700' : '400'};opacity:${v ? '1' : '0.55'};">${b.name}${label ? ` <span style="font-size:0.7rem;opacity:0.5;">${label}</span>` : ''}</div>
-          <div style="font-size:0.75rem;color:#6ab0ff;min-width:60px;text-align:right;">→ Ir</div>
-          <div style="font-size:0.8rem;color:#9ca3af;min-width:52px;text-align:right;">${v ? '👁️' : '—'}</div>
-          <div style="font-size:0.8rem;min-width:60px;text-align:right;">F ${easy}</div>
-          <div style="font-size:0.8rem;min-width:60px;text-align:right;">M ${medium}</div>
+          <div style="font-size:0.78rem;min-width:50px;text-align:right;" title="Visitado">${v ? '👁️ visto' : '<span style="opacity:0.35;">—</span>'}</div>
+          <div style="font-size:0.78rem;min-width:54px;text-align:right;" title="Missões respondidas">${missionCell}</div>
+          <div style="font-size:0.78rem;color:#6ab0ff;min-width:38px;text-align:right;font-weight:700;">Ir →</div>
         </div>`;
     }).join('');
     overlay.innerHTML = `
@@ -1432,6 +1473,12 @@ export class HUD {
       }).join('');
 
     // Discoveries tab
+    const PT_NAMES: Record<string, string> = {
+      sun: 'Sol', mercury: 'Mercúrio', venus: 'Vênus', earth: 'Terra', moon: 'Lua',
+      mars: 'Marte', jupiter: 'Júpiter', saturn: 'Saturno', uranus: 'Urano',
+      neptune: 'Netuno', pluto: 'Plutão', ceres: 'Ceres', eris: 'Éris',
+      haumea: 'Haumea', makemake: 'Makemake',
+    };
     const discRows = allDiscoverables.length === 0
       ? `<div style="text-align:center;opacity:0.5;padding:32px 0;font-size:0.85rem;">Nenhum objeto para descobrir ainda.</div>`
       : allDiscoverables.map((d) => {
@@ -1443,7 +1490,7 @@ export class HUD {
             <div style="width:12px;height:12px;border-radius:50%;background:${d.color};flex-shrink:0;${found ? '' : 'opacity:0.3;'}"></div>
             <div style="flex:1;">
               <div style="font-size:0.82rem;font-weight:${found ? '700' : '400'};opacity:${found ? '1' : '0.4'};">${found ? d.name : '???'}</div>
-              <div style="font-size:0.65rem;opacity:0.5;">${d.bodyId.charAt(0).toUpperCase() + d.bodyId.slice(1)}</div>
+              <div style="font-size:0.65rem;opacity:0.5;">${PT_NAMES[d.bodyId] ?? d.bodyId}</div>
             </div>
             ${found ? '<div style="color:#00dc78;font-size:0.8rem;">✓</div>' : '<div style="font-size:0.75rem;color:#fbbf24;opacity:0.6;">🔍</div>'}
           </div>`;
