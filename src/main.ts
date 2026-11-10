@@ -1152,7 +1152,7 @@ let vrStartMenu: VRStartMenu | null = null;
 // Passeio automático: a nave viaja sozinha de corpo em corpo com narração.
 // Qualquer gaze num planeta interrompe e devolve o controle manual.
 const TOUR_STOPS = ['sun', 'mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
-const TOUR_DWELL_S = 20;
+const TOUR_DWELL_S = 30;
 let vrTour: { i: number; t: number } | null = null;
 
 function startVRTour() {
