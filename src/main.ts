@@ -24,6 +24,7 @@ import astronautsData from '@/data/astronauts.json';
 import narrativeLines from '@/data/narrativeLines.json';
 import { HIDDEN_OBJECTS } from '@/data/hiddenObjects';
 import { CHAPTERS } from '@/data/chapters';
+import { VRNavPanel } from '@/xr/vrNavPanel';
 
 // --- Sistema de Badges ---
 const BADGES = [
@@ -528,6 +529,10 @@ function rebuildSelectable() {
   if (hub.exoPortal?.unlocked) selectable.push(hub.exoPortal.hitbox);
   // Objetos ocultos
   for (const hb of hub.hiddenObjectHitboxes) selectable.push(hb);
+  // Painel de navegação VR (apenas em sessão ativa)
+  if (engine.isPresenting && vrNavPanel) {
+    for (const hb of vrNavPanel.hitboxes) selectable.push(hb);
+  }
 }
 rebuildSelectable();
 
@@ -1058,27 +1063,35 @@ function buildGrandeMissaoQuestions(): MissionQuestion[] {
   return all.slice(0, 10);
 }
 
-// --- Sessão VR: o rig assume onde a câmera estava, e devolve ao sair ---
+// --- Sessão VR: posição horizontal, painel de navegação, devolve ao sair ---
+let vrNavPanel: VRNavPanel | null = null;
 
 engine.renderer.xr.addEventListener('sessionstart', () => {
   transition = null;
   controls.enabled = false;
-  const pos = engine.camera.position.clone();
-  const alvo = controls.target.clone();
   engine.camera.position.set(0, 0, 0);
   engine.camera.quaternion.identity();
-  posicionarObservador(pos, alvo);
+  // Posicionar rig no plano orbital (y=12) olhando horizontalmente para o Sol
+  // — o usuário vê os planetas distribuídos à frente em vez de precisar olhar para cima
+  const vrPos = new THREE.Vector3(0, 12, 480);
+  posicionarObservador(vrPos, ORIGEM);
+  // Painel de navegação 3D fixo ao rig
+  vrNavPanel?.dispose();
+  vrNavPanel = new VRNavPanel(engine.rig, data.bodies);
+  rebuildSelectable();
 });
 
 engine.renderer.xr.addEventListener('sessionend', () => {
+  vrNavPanel?.dispose();
+  vrNavPanel = null;
   const pos = engine.rig.position.clone();
   engine.rig.position.set(0, 0, 0);
   engine.rig.rotation.set(0, 0, 0);
-  // A sessão deixa na câmera a projeção do headset
   engine.camera.aspect = window.innerWidth / window.innerHeight;
   engine.camera.updateProjectionMatrix();
   controls.enabled = true;
   posicionarObservador(pos, currentScene === 'base' ? new THREE.Vector3(0, 2, 0) : ORIGEM);
+  rebuildSelectable();
 });
 
 // Menor distância da câmera até a superfície de algum corpo — define o near

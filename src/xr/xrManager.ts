@@ -23,20 +23,36 @@ export class XRManager {
   private gazeRing: THREE.Mesh;
   // Estado anterior do botão principal por gamepad — disparo só na borda de subida
   private gamepadPrevPressed = new Map<number, boolean>();
+  private gazeFill!: THREE.Mesh;
 
   constructor(opts: XRManagerOptions) {
     this.renderer = opts.renderer;
     this.camera = opts.camera;
     this.onGazeSelect = opts.onGazeSelect;
-    const ringGeo = new THREE.RingGeometry(0.03, 0.04, 32);
-    // Sem teste de profundidade: a mira precisa aparecer mesmo com um planeta
-    // mais perto que 0,6 unidade da câmera
+    // Anel externo permanente
+    const ringGeo = new THREE.RingGeometry(0.028, 0.044, 40);
     const ringMat = new THREE.MeshBasicMaterial({ color: GAZE_RING_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false, depthWrite: false });
     this.gazeRing = new THREE.Mesh(ringGeo, ringMat);
     this.gazeRing.renderOrder = 9999;
     this.gazeRing.position.set(0, 0, -0.6);
     this.gazeRing.visible = false;
     this.camera.add(this.gazeRing);
+
+    // Ponto central de mira
+    const dotGeo = new THREE.CircleGeometry(0.007, 16);
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    dot.renderOrder = 9999;
+    dot.position.set(0, 0, -0.6);
+    this.camera.add(dot);
+
+    // Disco de progresso (preenchimento que cresce durante o dwell)
+    const fillGeo = new THREE.CircleGeometry(0.026, 32);
+    const fillMat = new THREE.MeshBasicMaterial({ color: GAZE_RING_COLOR, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
+    this.gazeFill = new THREE.Mesh(fillGeo, fillMat);
+    this.gazeFill.renderOrder = 9998;
+    this.gazeFill.position.set(0, 0, -0.601);
+    this.camera.add(this.gazeFill);
     this.checkSupport();
   }
 
@@ -78,9 +94,11 @@ export class XRManager {
   update(dt: number, selectable: THREE.Object3D[]) {
     if (!this.session) {
       this.gazeRing.visible = false;
+      this.gazeFill.visible = false;
       return;
     }
     this.gazeRing.visible = true;
+    this.gazeFill.visible = true;
     const origin = new THREE.Vector2(0, 0);
     this.raycaster.setFromCamera(origin, this.camera);
     const hits = this.raycaster.intersectObjects(selectable, true);
@@ -96,9 +114,11 @@ export class XRManager {
       this.gazeTimer = 0;
       this.gazeRing.scale.setScalar(target ? 1.3 : 1);
       ringMat.opacity = target ? 1 : 0.4;
+      this.gazeFill.scale.setScalar(0);
+      (this.gazeFill.material as THREE.MeshBasicMaterial).opacity = 0;
       if (pressedNow && target) {
         this.onGazeSelect(target);
-        if (navigator.vibrate) navigator.vibrate(50);
+        if (navigator.vibrate) navigator.vibrate(80);
       }
       return;
     }
@@ -107,18 +127,27 @@ export class XRManager {
     if (target && target === this.gazeTarget) {
       this.gazeTimer += dt;
       const p = Math.min(this.gazeTimer / this.gazeDuration, 1);
-      this.gazeRing.scale.setScalar(1 + p * 0.6);
-      (this.gazeRing.material as THREE.MeshBasicMaterial).opacity = 0.4 + p * 0.6;
+      // Anel encolhe conforme o progresso (efeito de "fechamento")
+      this.gazeRing.scale.setScalar(1 + (1 - p) * 0.5);
+      (this.gazeRing.material as THREE.MeshBasicMaterial).opacity = 0.5 + p * 0.5;
+      // Disco de preenchimento cresce de 0 a 1
+      this.gazeFill.scale.setScalar(p);
+      (this.gazeFill.material as THREE.MeshBasicMaterial).opacity = p * 0.75;
+      (this.gazeFill.material as THREE.MeshBasicMaterial).color.setHex(
+        p > 0.8 ? 0x22c55e : GAZE_RING_COLOR,
+      );
       if (this.gazeTimer >= this.gazeDuration) {
         this.onGazeSelect(target);
         this.gazeTimer = 0;
-        if (navigator.vibrate) navigator.vibrate(50);
+        if (navigator.vibrate) navigator.vibrate(80);
       }
     } else {
       this.gazeTarget = target;
       this.gazeTimer = 0;
-      this.gazeRing.scale.setScalar(1);
-      (this.gazeRing.material as THREE.MeshBasicMaterial).opacity = 0.4;
+      this.gazeRing.scale.setScalar(1.5);
+      (this.gazeRing.material as THREE.MeshBasicMaterial).opacity = 0.5;
+      this.gazeFill.scale.setScalar(0);
+      (this.gazeFill.material as THREE.MeshBasicMaterial).opacity = 0;
     }
   }
 
