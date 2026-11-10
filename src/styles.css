@@ -67,6 +67,48 @@ html, body {
 .hud { position: absolute; inset: 0; pointer-events: none; }
 .hud .interactive { pointer-events: auto; }
 
+/* Duplo toque: esconde o HUD */
+.top-bar, .time-slider, .vr-btn, .side-panel, .cert {
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+.hud--hidden .top-bar,
+.hud--hidden .time-slider,
+.hud--hidden .vr-btn,
+.hud--hidden .side-panel,
+.hud--hidden .cert {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+}
+
+/* Indicador de HUD oculto */
+#hud-reveal {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9000;
+  background: rgba(10,20,50,0.75);
+  border: 1px solid rgba(125,211,252,0.35);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  color: rgba(125,211,252,0.85);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+#hud-reveal.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);

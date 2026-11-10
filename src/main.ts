@@ -569,12 +569,24 @@ let pointerInicio: { x: number; y: number; id: number; type: string } | null = n
 canvas.addEventListener('pointerdown', (e) => {
   pointerInicio = { x: e.clientX, y: e.clientY, id: e.pointerId, type: e.pointerType };
 });
+
+let _ultimoToque = 0;
 canvas.addEventListener('pointerup', (e) => {
   const ini = pointerInicio;
   pointerInicio = null;
   if (!ini || ini.id !== e.pointerId) return;
   const limiar = ini.type === 'mouse' ? LIMIAR_MOUSE_PX : LIMIAR_TOUCH_PX;
   if (Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > limiar) return;
+
+  // Duplo toque (≤300 ms) → alterna visibilidade do HUD
+  const agora = Date.now();
+  if (agora - _ultimoToque < 300) {
+    hud.toggleHUD();
+    _ultimoToque = 0;
+    return;
+  }
+  _ultimoToque = agora;
+
   selecionarNoPonto(e.clientX, e.clientY);
 });
 

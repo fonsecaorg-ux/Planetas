@@ -43,6 +43,7 @@ export class HUD {
   private mainBodyIds: Set<string> = new Set();
   private selectedQuestions: Map<string, MissionQuestion> = new Map();
   private celebrationShown = false;
+  private hudVisible = true;
 
   constructor(root: HTMLElement, callbacks: HUDCallbacks, progress: ProgressState) {
     this.root = root;
@@ -115,6 +116,7 @@ export class HUD {
         <div id="rotate-hint__icon">📱</div>
         <p>Para a melhor experiência no VR Box, gire o celular para o modo <strong>paisagem</strong>.</p>
       </div>
+      <div id="hud-reveal" title="Duplo toque para mostrar o menu">⊙ mostrar menu</div>
     `;
 
     // eventos
@@ -137,6 +139,9 @@ export class HUD {
     this.root.querySelector('#vr-btn')?.addEventListener('click', () => {
       document.dispatchEvent(new CustomEvent('xr:enter'));
     });
+
+    // Botão revelador: toque único mostra HUD novamente
+    document.getElementById('hud-reveal')?.addEventListener('click', () => this.toggleHUD());
 
     const astroSelect = this.root.querySelector('#astro-select') as HTMLSelectElement | null;
     astroSelect?.addEventListener('change', () => {
@@ -166,6 +171,14 @@ export class HUD {
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
     });
+  }
+
+  toggleHUD() {
+    this.hudVisible = !this.hudVisible;
+    const hud = this.root.querySelector('.hud') as HTMLElement | null;
+    const reveal = document.getElementById('hud-reveal');
+    if (hud) hud.classList.toggle('hud--hidden', !this.hudVisible);
+    if (reveal) reveal.classList.toggle('visible', !this.hudVisible);
   }
 
   setScaleMode(m: ScaleMode) {
