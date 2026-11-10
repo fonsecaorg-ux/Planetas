@@ -18,6 +18,7 @@ export interface HUDCallbacks {
   onBadges: () => void;
   onDailyChallenge: () => void;
   onProgressMap: () => void;
+  onNavigate: (bodyId: string) => void;
   onComparePlanet: (currentBodyId: string) => void;
   onProfile: () => void;
   onAstronautSelect: (name: string) => void;
@@ -1141,40 +1142,53 @@ export class HUD {
   showProgressMap(bodies: BodyData[], state: ProgressState) {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;overflow-y:auto;';
-    const relevant = bodies.filter((b) => b.type !== 'belt');
+    const relevant = bodies.filter((b) => b.type !== 'belt' && b.type !== 'exoplanet');
     const total = relevant.length;
     const visitedSet = new Set(state.visited);
     const visitedCount = relevant.filter((b) => visitedSet.has(b.id)).length;
+    const typeColors: Record<string, string> = { star: '#fbbf24', planet: '#6ab0ff', dwarf: '#a0a0b0', exoplanet: '#c084fc', moon: '#d0d0d0' };
+    const typeLabel: Record<string, string> = { star: 'Estrela', planet: 'Planeta', dwarf: 'Anão', moon: '🌙 Lua' };
     const rows = relevant.map((b) => {
       const v = visitedSet.has(b.id);
       const rec = state.completedMissions[b.id];
       const easy   = rec?.easy?.correct   ? '✅' : (rec?.easy   ? '❌' : '○');
       const medium = rec?.medium?.correct ? '✅' : (rec?.medium ? '❌' : '○');
-      const typeColors: Record<string, string> = { star: '#fbbf24', planet: '#6ab0ff', dwarf: '#a0a0b0', exoplanet: '#c084fc', moon: '#d0d0d0' };
       const dot = typeColors[b.type] ?? '#888';
+      const label = typeLabel[b.type] ?? '';
       return `
-        <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
+        <div class="pm-row" data-id="${b.id}" style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;
           background:${v ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'};
-          border:1px solid ${v ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'};margin-bottom:5px;">
+          border:1px solid ${v ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'};margin-bottom:5px;
+          cursor:pointer;transition:background 0.15s;"
+          onmouseover="this.style.background='rgba(99,102,241,0.22)'"
+          onmouseout="this.style.background='${v ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'}'">
           <div style="width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0;"></div>
-          <div style="flex:1;font-size:0.88rem;font-weight:${v ? '700' : '400'};opacity:${v ? '1' : '0.45'};">${b.name}</div>
-          <div style="font-size:0.8rem;color:#9ca3af;min-width:52px;text-align:right;">${v ? '👁️ visitado' : '—'}</div>
-          <div style="font-size:0.8rem;min-width:70px;text-align:right;">Fácil ${easy}</div>
-          <div style="font-size:0.8rem;min-width:72px;text-align:right;">Médio ${medium}</div>
+          <div style="flex:1;font-size:0.88rem;font-weight:${v ? '700' : '400'};opacity:${v ? '1' : '0.55'};">${b.name}${label ? ` <span style="font-size:0.7rem;opacity:0.5;">${label}</span>` : ''}</div>
+          <div style="font-size:0.75rem;color:#6ab0ff;min-width:60px;text-align:right;">→ Ir</div>
+          <div style="font-size:0.8rem;color:#9ca3af;min-width:52px;text-align:right;">${v ? '👁️' : '—'}</div>
+          <div style="font-size:0.8rem;min-width:60px;text-align:right;">F ${easy}</div>
+          <div style="font-size:0.8rem;min-width:60px;text-align:right;">M ${medium}</div>
         </div>`;
     }).join('');
     overlay.innerHTML = `
-      <div style="max-width:580px;width:100%;color:#e8eef7;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="max-width:600px;width:100%;color:#e8eef7;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <h2 style="margin:0;color:#6ab0ff;">🗺️ Mapa de Progresso</h2>
-          <span style="font-size:0.8rem;opacity:0.5;">${visitedCount}/${total} corpos visitados</span>
           <button id="pm-close" style="background:none;border:1px solid rgba(255,255,255,0.2);color:#e8eef7;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;">✕ Fechar</button>
         </div>
+        <p style="margin:0 0 12px;font-size:0.78rem;opacity:0.5;">${visitedCount}/${total} corpos visitados · toque em qualquer linha para navegar</p>
         <div>${rows}</div>
       </div>
     `;
     document.body.appendChild(overlay);
     overlay.querySelector('#pm-close')?.addEventListener('click', () => overlay.remove());
+    overlay.querySelectorAll('.pm-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = (row as HTMLElement).dataset.id!;
+        overlay.remove();
+        this.callbacks.onNavigate(id);
+      });
+    });
   }
 
   showComparePicker(allBodies: BodyData[], currentBody: BodyData) {

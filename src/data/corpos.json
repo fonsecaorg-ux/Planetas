@@ -131,6 +131,33 @@
       ]
     },
     {
+      "id": "moon",
+      "name": "Lua",
+      "type": "moon",
+      "radiusKm": 1737.4,
+      "massKg": "7.342e22",
+      "distanceAU": 0.00257,
+      "distanceKm": 384400,
+      "orbitalPeriodDays": 27.32,
+      "orbitalElements": { "a": 0.00257, "e": 0.0549, "i": 5.145, "omega": 0, "w_bar": 0, "L0": 0 },
+      "rotationPeriodHours": 655.72,
+      "temperatureK": 250,
+      "gravityRelative": 0.165,
+      "atmosphere": "Sem atmosfera (exosfera de He, Ne, Ar)",
+      "moons": 0,
+      "color": "#c8c8c8",
+      "texture": "moon.jpg",
+      "curiosities": [
+        "A Lua é o único astro além da Terra onde humanos já pisaram — missões Apollo 1969–1972.",
+        "A gravidade lunar é 1/6 da terrestre: um salto na Terra equivale a um pulo de 6 metros na Lua.",
+        "A mesma face da Lua sempre aponta para a Terra (rotação síncrona)."
+      ],
+      "mission": {
+        "easy": { "q": "Qual a gravidade da Lua em relação à Terra?", "options": ["1/2", "1/4", "1/6", "1/10"], "answer": 2 },
+        "medium": { "q": "Qual foi a primeira missão a pousar humanos na Lua?", "options": ["Apollo 10", "Apollo 11", "Gemini 8", "Vostok 1"], "answer": 1 }
+      }
+    },
+    {
       "id": "mars",
       "name": "Marte",
       "type": "planet",

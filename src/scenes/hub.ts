@@ -76,6 +76,7 @@ export class HubScene {
     // duas escalas. Os dados seguem em corpos.json para um destino próprio
     for (const b of opts.data.bodies) {
       if (b.type === 'exoplanet') continue;
+      if (b.type === 'moon') continue; // Lua tratada pela MoonBase
       if (b.type === 'belt') {
         const belt = new Belt(b, opts.scaleMode);
         this.belts.push(belt);
@@ -226,7 +227,7 @@ export class HubScene {
 
   private criarOrbitas(bodies: BodyData[], scaleMode: ScaleMode) {
     this.removerOrbitas();
-    const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet' && b.type !== 'dwarf');
+    const planets = bodies.filter((b) => b.id !== 'sun' && b.type !== 'belt' && b.type !== 'exoplanet' && b.type !== 'dwarf' && b.type !== 'moon');
 
     // Zona interna (≤ Marte) e zona externa — cores distintas
     const INNER_IDS = new Set(['mercury', 'venus', 'earth', 'mars']);

@@ -373,6 +373,7 @@ const hud = new HUD(uiRoot, {
   onProgressMap: () => {
     hud.showProgressMap(data.bodies, store.get());
   },
+  onNavigate: (id) => selectBody(id),
   onComparePlanet: (currentBodyId) => {
     const current = data.bodies.find((b) => b.id === currentBodyId);
     if (current) hud.showComparePicker(data.bodies, current);
