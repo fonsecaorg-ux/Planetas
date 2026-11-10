@@ -23,6 +23,7 @@ export interface HUDCallbacks {
   onProfile: () => void;
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
+  onTour: () => void;
   onDiary: () => void;
   onExpedition: () => void;
   onPlanetCreator: () => void;
@@ -84,6 +85,7 @@ export class HUD {
                 <button class="btn" id="badges-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🏅 Conquistas</button>
                 <button class="btn" id="expedition-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🧭 Expedições</button>
                 <button class="btn" id="daily-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">📅 Desafio do dia</button>
+                <button class="btn" id="tour-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🎬 Passeio guiado</button>
                 <button class="btn" id="planet-creator-btn" style="display:block;width:100%;text-align:left;margin-bottom:3px;">🪐 Criar planeta</button>
                 <button class="btn" id="profile-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px;">👤 Perfil</button>
                 <select id="astro-select" style="width:100%;padding:4px 6px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--fg);border:1px solid rgba(255,255,255,0.15);font-size:0.72rem;">
@@ -166,6 +168,7 @@ export class HUD {
     this.root.querySelector('#badges-btn')?.addEventListener('click', () => { this.callbacks.onBadges(); this._closeMoreMenu(); });
     this.root.querySelector('#expedition-btn')?.addEventListener('click', () => { this.callbacks.onExpedition(); this._closeMoreMenu(); });
     this.root.querySelector('#daily-btn')?.addEventListener('click', () => { this.callbacks.onDailyChallenge(); this._closeMoreMenu(); });
+    this.root.querySelector('#tour-btn')?.addEventListener('click', () => { this.callbacks.onTour(); this._closeMoreMenu(); });
     this.root.querySelector('#planet-creator-btn')?.addEventListener('click', () => { this.callbacks.onPlanetCreator(); this._closeMoreMenu(); });
     this.root.querySelector('#map-btn')?.addEventListener('click', () => this.callbacks.onProgressMap());
     this.root.querySelector('#profile-btn')?.addEventListener('click', () => { this.callbacks.onProfile(); this._closeMoreMenu(); });
@@ -183,6 +186,24 @@ export class HUD {
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
     });
+  }
+
+  /** Barra flutuante do passeio automático (modo cinema, fora do VR). */
+  showTourBanner(onStop: () => void) {
+    this.hideTourBanner();
+    const bar = document.createElement('div');
+    bar.id = 'tour-banner';
+    bar.style.cssText = 'position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:9500;display:flex;align-items:center;gap:12px;background:rgba(8,13,26,0.94);border:1px solid rgba(34,197,94,0.5);border-radius:999px;padding:8px 10px 8px 18px;pointer-events:auto;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+    bar.innerHTML = `
+      <span style="font-size:0.82rem;color:#4ade80;font-weight:700;">🎬 Passeio automático</span>
+      <button id="tour-stop" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#f87171;border-radius:999px;padding:6px 14px;cursor:pointer;font-size:0.78rem;">■ Parar</button>
+    `;
+    document.body.appendChild(bar);
+    bar.querySelector('#tour-stop')?.addEventListener('click', onStop);
+  }
+
+  hideTourBanner() {
+    document.getElementById('tour-banner')?.remove();
   }
 
   /** Alterna o rótulo do botão Base conforme a cena ativa. */

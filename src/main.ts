@@ -6,6 +6,7 @@ import { loadSolarSystemData } from '@/data/loader';
 import { ProgressStore, getLevelForXP } from '@/utils/storage';
 import { HubScene } from '@/scenes/hub';
 import { BaseScene } from '@/scenes/base';
+import { MoonSurfaceScene } from '@/scenes/moonSurface';
 import { animateCamera, stepTransition, shiftTransition, detourAround, ScreenFade } from '@/scenes/transitions';
 import type { CameraTransition } from '@/scenes/transitions';
 import { HUD } from '@/ui/hud';
@@ -32,6 +33,7 @@ const BADGES = [
   { id: 'half-missions',        icon: '🌗', name: 'Meio Caminho',            desc: 'Completou missões em metade dos corpos' },
   { id: 'all-missions',         icon: '🏆', name: 'Mestre do Sistema Solar', desc: 'Completou missões em todos os corpos' },
   { id: 'moon-visited',         icon: '🌙', name: 'Lunar',                   desc: 'Visitou a Lua' },
+  { id: 'moon-flag',            icon: '🚩', name: 'Comandante Lunar',        desc: 'Plantou a bandeira do Brasil na Lua' },
   { id: 'portal-unlocked',      icon: '🌌', name: 'Portal Interestelar',     desc: 'Desbloqueou o portal exoplanetário' },
   { id: 'all-planets',          icon: '🪐', name: 'Grande Viajante',         desc: 'Visitou todos os planetas' },
   { id: 'grande-missao',        icon: '⭐', name: 'Grande Missão',           desc: 'Completou a Grande Missão' },
@@ -225,9 +227,10 @@ const progress = store.get();
 
 let scaleMode: ScaleMode = progress.scaleMode;
 let timeSpeed = progress.timeSpeed;
-let currentScene: 'hub' | 'planet' | 'base' = 'hub';
+let currentScene: 'hub' | 'planet' | 'base' | 'lua' = 'hub';
 let selectedBodyId: string | null = null;
 let baseScene: BaseScene | null = null;
+let moonScene: MoonSurfaceScene | null = null;
 let transition: CameraTransition | null = null;
 
 // Posição do Sol em coordenadas de mundo, compartilhada com os shaders
@@ -408,7 +411,11 @@ const hud = new HUD(uiRoot, {
     store.getStationModules(),
   ),
   onExpedition: () => openExpeditionPanel(),
-  onBase: () => { if (currentScene === 'base') goBackToHub(); else switchToBase(); },
+  onBase: () => { if (currentScene === 'base' || currentScene === 'lua') goBackToHub(); else switchToBase(); },
+  onTour: () => {
+    if (currentScene === 'base' || currentScene === 'lua') goBackToHub();
+    startVRTour();
+  },
   onPlaySound: (kind) => {
     if (kind === 'click') audio.click();
     else if (kind === 'success') audio.success();
@@ -522,6 +529,8 @@ let selectable: THREE.Object3D[] = [];
 
 function rebuildSelectable() {
   selectable = [];
+  // Na Lua os toques são tratados pela própria cena (caminhar até o ponto)
+  if (currentScene === 'lua') return;
   if (currentScene === 'base' && baseScene) {
     for (const h of baseScene.hitboxes) {
       (h.mesh as any).userData = { bodyId: h.id };
@@ -558,6 +567,11 @@ function selecionarNoPonto(clientX: number, clientY: number) {
   pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, engine.camera);
+  // Na Lua: toque no chão = caminhar até lá
+  if (currentScene === 'lua') {
+    moonScene?.handleTap(raycaster);
+    return;
+  }
   const hits = raycaster.intersectObjects(selectable, true);
   const id = hits.length ? (hits[0].object as any).userData?.bodyId : undefined;
   if (id) selectBody(id);
@@ -659,6 +673,11 @@ function ajustarLimitesControles() {
     controls.maxDistance = 200;
     return;
   }
+  if (currentScene === 'lua') {
+    controls.minDistance = 2;
+    controls.maxDistance = 80;
+    return;
+  }
   controls.minDistance = hub.focus.radius * 1.2;
   controls.maxDistance = sceneExtent(scaleMode) * 1.5;
 }
@@ -716,11 +735,12 @@ function atualizarIndicadorEscala(bodyData?: BodyData) {
 
 function selectBody(id: string) {
   audio.click();
-  // Destino celeste escolhido estando na base (ex.: "Viajar" do Diário):
-  // volta ao hub primeiro, senão a viagem aconteceria numa cena que não existe
+  stopVRTour();
+  // Destino celeste escolhido estando na base ou na Lua (ex.: "Viajar" do
+  // Diário): volta ao hub primeiro, senão a viagem seria numa cena inexistente
   const alvoCeleste = id === 'moon' || id === 'station'
     || data.bodies.some((b) => b.id === id && b.type !== 'belt' && b.type !== 'exoplanet');
-  if (currentScene === 'base' && alvoCeleste) goBackToHub();
+  if ((currentScene === 'base' || currentScene === 'lua') && alvoCeleste) goBackToHub();
   if (id === 'station') {
     store.markVisited('station');
     hud.updateProgress(store.get());
@@ -928,12 +948,14 @@ function showMoonPanel() {
     </div>
     <div style="padding:10px;background:rgba(0,150,59,0.14);border:1px solid rgba(0,150,59,0.45);border-radius:8px;">
       <div style="font-size:0.85rem;font-weight:bold;color:#ffd700;margin-bottom:5px">🚩 Missão Bandeira do Brasil</div>
-      <div style="font-size:0.8rem;line-height:1.5;opacity:0.95"><b>JUAN_GUI7</b>, Comandante Lunar, pousou na superfície e plantou a Bandeira do Brasil — primeiro explorador brasileiro a conquistar a Lua.</div>
+      <div style="font-size:0.8rem;line-height:1.5;opacity:0.95"><b>JUAN_GUI7</b>, Comandante Lunar, tem a missão de plantar a Bandeira do Brasil na superfície — primeiro explorador brasileiro a conquistar a Lua.</div>
     </div>
+    <button class="btn" id="moon-land-btn" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#4a4a6a,#8a8aba);border:1px solid rgba(255,215,0,0.5);font-weight:700;">🌙 Pousar na Lua</button>
     <div class="mission" style="margin-top:10px;" id="moon-mission"></div>
   `;
   card.querySelector('#close-btn')?.addEventListener('click', () => closeCard());
   card.querySelector('#back-btn')?.addEventListener('click', () => goBackToHub());
+  card.querySelector('#moon-land-btn')?.addEventListener('click', () => switchToMoonSurface());
   renderMoonQuiz(card.querySelector('#moon-mission') as HTMLElement);
 }
 
@@ -1026,7 +1048,7 @@ function cardHeader(title: string): string {
 
 function goBackToHub() {
   audio.ambient();
-  const vindoDaBase = currentScene === 'base';
+  const vindoDeSuperficie = currentScene === 'base' || currentScene === 'lua';
   if (baseScene) {
     engine.scene.remove(baseScene.group);
     baseScene.dispose();
@@ -1040,6 +1062,16 @@ function goBackToHub() {
     engine.bloomPass.threshold = 0.88;
     engine.renderer.toneMappingExposure = 1.1;
   }
+  if (moonScene) {
+    engine.scene.remove(moonScene.group);
+    moonScene.dispose();
+    moonScene = null;
+    engine.scene.add(hub.group);
+    engine.bloomPass.enabled = true;
+    engine.bloomPass.strength = 0.65;
+    engine.bloomPass.threshold = 0.88;
+    engine.renderer.toneMappingExposure = 1.1;
+  }
   currentScene = 'hub';
   selectedBodyId = null;
   trocarFoco('sun');
@@ -1047,12 +1079,46 @@ function goBackToHub() {
   hud.hidePlanet();
   hud.setBaseButtonMode(false);
   atualizarIndicadorEscala();
-  if (vindoDaBase) {
+  if (vindoDeSuperficie) {
     posicionarObservador(VISTA_GERAL[scaleMode], ORIGEM);
     ajustarLimitesControles();
   } else {
     viajar(VISTA_GERAL[scaleMode].clone(), ORIGEM);
   }
+}
+
+function switchToMoonSurface() {
+  stopVRTour();
+  audio.stopAmbient();
+  transition = null;
+  controls.enabled = true;
+  engine.scene.remove(hub.group);
+  engine.scene.environment = null;
+  starfield.visible = true; // céu lunar: estrelas sempre visíveis (sem atmosfera)
+  engine.bloomPass.enabled = false;
+  engine.renderer.toneMappingExposure = 1.0;
+  const juanData = (astronautsData.astronauts as any[]).find((a) => a.id === 'astro-juan');
+  moonScene?.dispose();
+  moonScene = new MoonSurfaceScene(juanData, store.hasBadge('moon-flag'));
+  moonScene.onFlagPlanted = () => {
+    audio.success();
+    awardXP(30);
+    checkAndAwardBadge('moon-flag');
+    checkChapterProgress();
+    hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'A bandeira do Brasil está na Lua! Missão cumprida, comandante! 🚩');
+    audio.speak('A bandeira do Brasil está na Lua! Missão cumprida, comandante!');
+  };
+  engine.scene.add(moonScene.group);
+  currentScene = 'lua';
+  rebuildSelectable();
+  ajustarLimitesControles();
+  const jp = moonScene.juanPosition;
+  posicionarObservador(jp.clone().add(new THREE.Vector3(0, 3.5, 9)), jp.clone().add(new THREE.Vector3(0, 1, 0)));
+  hud.hidePlanet();
+  hud.setBaseButtonMode(true);
+  hud.setScaleIndicator('Superfície da Lua — toque no chão para o Juan caminhar');
+  hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'Pouso confirmado! Toque no chão e eu caminho até lá. Vamos ao círculo dourado plantar a nossa bandeira!');
+  audio.speak('Pouso confirmado! Toque no chão para caminhar até o círculo dourado e plantar a bandeira do Brasil!');
 }
 
 function switchToBase() {
@@ -1109,7 +1175,7 @@ function setScaleMode(m: ScaleMode) {
   // de posição, e o observador mantém o enquadramento
   hub.setScaleMode(m, data);
   hub.applyFloatingOrigin();
-  if (currentScene === 'base') return;
+  if (currentScene === 'base' || currentScene === 'lua') return;
   ajustarLimitesControles();
   if (currentScene === 'hub') {
     viajar(VISTA_GERAL[m].clone(), ORIGEM);
@@ -1157,6 +1223,9 @@ let vrTour: { i: number; t: number } | null = null;
 
 function startVRTour() {
   vrTour = { i: 0, t: 0 };
+  hud.hidePlanet();
+  // Fora do VR ("modo cinema"), mostra a barra com botão de parar
+  if (!engine.isPresenting) hud.showTourBanner(() => stopVRTour());
   audio.speak('Iniciando passeio pelo Sistema Solar. Relaxe e aproveite a viagem!');
   tourVisit(TOUR_STOPS[0]);
 }
@@ -1165,6 +1234,7 @@ function stopVRTour() {
   if (!vrTour) return;
   vrTour = null;
   audio.stopSpeaking();
+  hud.hideTourBanner();
 }
 
 function tourVisit(id: string) {
@@ -1180,6 +1250,7 @@ function tourVisit(id: string) {
     viajar(moonPos.clone().add(new THREE.Vector3(0, 2, 5)), moonPos, () => {
       audio.arrival('moon');
       audio.speak(`Lua. ${bodyData.curiosities[0] ?? ''}`);
+      if (!engine.isPresenting) hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', `🌙 Lua — ${bodyData.curiosities[0] ?? ''}`);
     });
     return;
   }
@@ -1187,10 +1258,13 @@ function tourVisit(id: string) {
   viajar(pontoDeChegada(new THREE.Vector3()), ORIGEM, () => {
     audio.arrival(bodyData.type);
     audio.speak(`${bodyData.name}. ${bodyData.curiosities[0] ?? ''}`);
+    if (!engine.isPresenting) hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', `${bodyData.name} — ${bodyData.curiosities[0] ?? ''}`);
   });
 }
 
 engine.renderer.xr.addEventListener('sessionstart', () => {
+  // VR só funciona no espaço: se estava na base ou na Lua, volta ao hub
+  if (currentScene === 'base' || currentScene === 'lua') goBackToHub();
   transition = null;
   controls.enabled = false;
   engine.camera.position.set(0, 0, 0);
@@ -1264,6 +1338,16 @@ engine.onUpdate((dt) => {
       engine.camera.position.y += (Math.random() - 0.5) * baseScene.shakeIntensity * 0.4;
       engine.camera.position.z += (Math.random() - 0.5) * baseScene.shakeIntensity * 0.3;
     }
+  } else if (currentScene === 'lua' && moonScene) {
+    moonScene.update(dt);
+    engine.setClipPlanes(0.05, 1500);
+    // Câmera acompanha o Juan suavemente
+    controls.target.lerp(_tmp.copy(moonScene.juanPosition).add(_delta.set(0, 1, 0)), 0.08);
+    engine.camera.getWorldPosition(_camPos);
+    starfield.position.copy(_camPos);
+    starfield.scale.setScalar(1.2);
+    skybox.position.copy(_camPos);
+    skybox.scale.setScalar(1.26);
   } else {
     hub.update(dt, timeSpeed, engine.camera);
     hub.applyFloatingOrigin();
@@ -1277,16 +1361,14 @@ engine.onUpdate((dt) => {
     skybox.position.copy(_camPos);
     skybox.scale.setScalar((engine.camera.far * 0.8) / 950);
   }
-  if (engine.isPresenting) {
-    vrStartMenu?.update(dt);
-    // Passeio automático: avança para o próximo corpo após o tempo de contemplação
-    if (vrTour) {
-      vrTour.t += dt;
-      if (vrTour.t >= TOUR_DWELL_S) {
-        vrTour.t = 0;
-        vrTour.i = (vrTour.i + 1) % TOUR_STOPS.length;
-        tourVisit(TOUR_STOPS[vrTour.i]);
-      }
+  if (engine.isPresenting) vrStartMenu?.update(dt);
+  // Passeio automático (VR ou modo cinema): avança após o tempo de contemplação
+  if (vrTour && (currentScene === 'hub' || currentScene === 'planet')) {
+    vrTour.t += dt;
+    if (vrTour.t >= TOUR_DWELL_S) {
+      vrTour.t = 0;
+      vrTour.i = (vrTour.i + 1) % TOUR_STOPS.length;
+      tourVisit(TOUR_STOPS[vrTour.i]);
     }
   }
   xr.update(dt, selectable);
