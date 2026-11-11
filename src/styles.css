@@ -359,6 +359,21 @@ html, body {
   display: none;
 }
 
+/* Celular: tela limpa — some o que é decorativo ou redundante */
+@media (max-width: 900px) {
+  /* Título é decorativo (o app é óbvio); progresso detalhado já vive no Mapa */
+  .brand { display: none; }
+  #progress-pill { display: none; }
+  /* Slider ancorado à esquerda para não colidir com 📸 e 🥽 VR à direita */
+  .time-slider {
+    left: 12px;
+    transform: none;
+    width: min(280px, 46vw);
+    padding: 6px 12px;
+  }
+  .scale-indicator { font-size: 0.68rem; max-width: 60vw; }
+}
+
 @media (max-width: 600px) {
   .side-panel { width: calc(100vw - 24px); top: auto; bottom: clamp(100px, 20vh, 140px); max-height: 40vh; }
   .time-slider { bottom: max(8px, env(safe-area-inset-bottom, 8px)); }

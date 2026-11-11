@@ -287,10 +287,15 @@ export class HUD {
     document.getElementById('tour-banner')?.remove();
   }
 
-  /** Alterna o rótulo do botão Base conforme a cena ativa. */
+  /** Alterna o rótulo do botão Base e esconde controles que só valem no espaço. */
   setBaseButtonMode(inBase: boolean) {
     const btn = this.root.querySelector('#base-btn') as HTMLElement | null;
     if (btn) btn.textContent = inBase ? '🌌 Espaço' : '🏢 Base';
+    // Visual/Real e velocidade do tempo não fazem sentido em cena de superfície
+    const toggle = this.root.querySelector('.scale-toggle') as HTMLElement | null;
+    const slider = this.root.querySelector('.time-slider') as HTMLElement | null;
+    if (toggle) toggle.style.display = inBase ? 'none' : '';
+    if (slider) slider.style.display = inBase ? 'none' : '';
   }
 
   toggleHUD() {
