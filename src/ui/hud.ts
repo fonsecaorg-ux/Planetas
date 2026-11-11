@@ -572,7 +572,7 @@ export class HUD {
     card.innerHTML = `
       ${this.cardHeader('🛰️ Estação Orbital — Sede do Time')}
       <div class="subtitle">Base de operações da equipe de exploradores</div>
-      <p style="font-size:0.85rem;opacity:0.85;">A estação orbita a Terra e serve como centro de comando, laboratório e ponto de encontro da tripulação (Lucas, Rafael e Mariana). Módulos de habitação, painéis solares e cúpula de observação.</p>
+      <p style="font-size:0.85rem;opacity:0.85;">A estação orbita a Terra e serve como centro de comando, laboratório e ponto de encontro da tripulação (JUAN_GUI7, KEZIA, NINO e BUH). Módulos de habitação, painéis solares e cúpula de observação.</p>
       <div style="margin-top:12px;">
         <button class="btn" id="cert-btn">📜 Certificado</button>
       </div>

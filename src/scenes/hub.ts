@@ -117,11 +117,8 @@ export class HubScene {
         }
       });
 
-      // JUAN_GUI7 (primeiro astronauta) planta a bandeira na Lua
-      const juanAstro = this.astronauts.find(a => a.data.id === 'astro-juan');
-      if (juanAstro) this.moonBase.placeAstronaut(juanAstro);
-
-      // Os demais acompanham o corpo em foco
+      // Toda a tripulação acompanha o corpo em foco — incluindo JUAN_GUI7,
+      // o personagem do jogador (a bandeira dele já está plantada na Lua)
       this.escortTo(earth);
 
       // Estação espacial (sede do time)
@@ -319,17 +316,22 @@ export class HubScene {
     if (this.station) this.station.group.visible = perto(this.station.group);
   }
 
-  // Reposiciona a tripulação em volta do corpo. JUAN_GUI7 fica sempre na Lua.
+  // Reposiciona toda a tripulação em volta do corpo em foco.
+  // JUAN_GUI7 (índice 0) lidera: fica um pouco mais alto e afastado,
+  // para o jogador sempre conseguir ver o próprio personagem.
   private escortTo(body: CelestialBody) {
     const alvo = body.data.type === 'star' ? this.bodies.get('earth') : body;
     if (!alvo) return;
-    // Exclui JUAN_GUI7 — ele está fixo na Lua
-    const terrAstros = this.astronauts.filter(a => a.data.id !== 'astro-juan');
-    terrAstros.forEach((astro, i) => {
-      const raio = alvo.radius + ESCOLTA_ALTURA + i * ESCOLTA_ESPACAMENTO;
-      const angulo = (i / Math.max(terrAstros.length, 1)) * Math.PI * 2;
+    this.astronauts.forEach((astro, i) => {
+      const lider = astro.data.id === 'astro-juan';
+      const raio = alvo.radius + ESCOLTA_ALTURA + i * ESCOLTA_ESPACAMENTO + (lider ? 0.3 : 0);
+      const angulo = (i / Math.max(this.astronauts.length, 1)) * Math.PI * 2;
       alvo.group.add(astro.group);
-      astro.group.position.set(Math.cos(angulo) * raio, astro.group.position.y, Math.sin(angulo) * raio);
+      astro.group.position.set(
+        Math.cos(angulo) * raio,
+        lider ? 0.4 : 0,
+        Math.sin(angulo) * raio,
+      );
     });
   }
 

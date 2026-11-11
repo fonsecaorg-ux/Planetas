@@ -125,14 +125,6 @@ export class MoonBase {
     this.moonGroup.add(flag);
   }
 
-  /** Adiciona um astronauta à superfície da Lua, próximo à bandeira. */
-  placeAstronaut(astro: { group: THREE.Group }) {
-    this.moonGroup.add(astro.group);
-    // Pé na superfície, levemente afastado da bandeira
-    astro.group.position.set(MOON_RADIUS + 0.3, 0.0, 0.5);
-    astro.group.rotation.y = Math.PI;
-  }
-
   private _buildGlowTexture(): THREE.Texture {
     const size = 128;
     const canvas = document.createElement('canvas');
