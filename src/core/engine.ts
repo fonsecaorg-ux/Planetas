@@ -98,6 +98,14 @@ export class Engine {
     return this.renderer.xr.isPresenting;
   }
 
+  /** Renderiza um quadro e captura como PNG — precisa ser síncrono para
+   *  ler o framebuffer antes de ser limpo (sem preserveDrawingBuffer). */
+  captureFrame(): string {
+    if (this.renderer.xr.isPresenting) this.renderer.render(this.scene, this.camera);
+    else this.composer.render();
+    return this.renderer.domElement.toDataURL('image/png');
+  }
+
   setClipPlanes(near: number, far: number) {
     const c = this.camera;
     const mudouNear = Math.abs(near - c.near) / c.near > LIMIAR_MUDANCA_CLIP;

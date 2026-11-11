@@ -68,12 +68,13 @@ html, body {
 .hud .interactive { pointer-events: auto; }
 
 /* Duplo toque: esconde o HUD */
-.top-bar, .time-slider, .vr-btn, .side-panel, .cert {
+.top-bar, .time-slider, .vr-btn, .photo-btn, .side-panel, .cert {
   transition: opacity 0.22s ease, visibility 0.22s ease;
 }
 .hud--hidden .top-bar,
 .hud--hidden .time-slider,
 .hud--hidden .vr-btn,
+.hud--hidden .photo-btn,
 .hud--hidden .side-panel,
 .hud--hidden .cert {
   opacity: 0 !important;
@@ -330,6 +331,12 @@ html, body {
   right: 16px;
 }
 
+.photo-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 92px;
+}
+
 .scale-indicator {
   position: absolute;
   bottom: 70px;
@@ -356,6 +363,7 @@ html, body {
   .side-panel { width: calc(100vw - 24px); top: auto; bottom: clamp(100px, 20vh, 140px); max-height: 40vh; }
   .time-slider { bottom: max(8px, env(safe-area-inset-bottom, 8px)); }
   .vr-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(16px, env(safe-area-inset-right, 16px)); }
+  .photo-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(92px, calc(env(safe-area-inset-right, 0px) + 92px)); }
 }
 
 /* Aviso de rotação — VR Box exige modo paisagem */

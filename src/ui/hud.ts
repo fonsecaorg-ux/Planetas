@@ -24,6 +24,7 @@ export interface HUDCallbacks {
   onAstronautSelect: (name: string) => void;
   onBase: () => void;
   onTour: () => void;
+  onPhoto: () => void;
   onDiary: () => void;
   onExpedition: () => void;
   onPlanetCreator: () => void;
@@ -113,6 +114,10 @@ export class HUD {
           <button class="btn" id="vr-btn">🥽 VR</button>
         </div>
 
+        <div class="photo-btn interactive">
+          <button class="btn" id="photo-btn" title="Tirar foto da missão">📸</button>
+        </div>
+
         <div class="cert" id="cert"></div>
       </div>
       <div id="rotate-hint">
@@ -142,6 +147,16 @@ export class HUD {
 
     this.root.querySelector('#vr-btn')?.addEventListener('click', () => {
       document.dispatchEvent(new CustomEvent('xr:enter'));
+    });
+
+    // Foto: flash branco rápido e captura do quadro
+    this.root.querySelector('#photo-btn')?.addEventListener('click', () => {
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:99999;pointer-events:none;opacity:0.9;transition:opacity 0.3s;';
+      document.body.appendChild(flash);
+      requestAnimationFrame(() => { flash.style.opacity = '0'; });
+      setTimeout(() => flash.remove(), 350);
+      this.callbacks.onPhoto();
     });
 
     // Botão revelador: toque único mostra HUD novamente
@@ -186,6 +201,72 @@ export class HUD {
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
     });
+  }
+
+  /** Prévia da foto da missão com moldura, nome do explorador e compartilhamento. */
+  showPhotoPreview(frameUrl: string, explorerName: string) {
+    document.getElementById('photo-overlay')?.remove();
+    const img = new Image();
+    img.onload = () => {
+      // Compor foto com moldura e legenda (reduz para no máx. 1280 px de largura)
+      const scale = Math.min(1, 1280 / img.width);
+      const W = Math.round(img.width * scale);
+      const H = Math.round(img.height * scale);
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, W, H);
+      const grad = ctx.createLinearGradient(0, H - 76, 0, H);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,20,0.88)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, H - 76, W, 76);
+      ctx.strokeStyle = '#7dd3fc';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, W - 6, H - 6);
+      ctx.fillStyle = '#e8eef7';
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🚀 ${explorerName}`, 20, H - 26);
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.font = '16px Arial, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Explorador do Sistema Solar · ${new Date().toLocaleDateString('pt-BR')}`, W - 20, H - 26);
+
+      const overlay = document.createElement('div');
+      overlay.id = 'photo-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,20,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;gap:14px;';
+      const photoEl = document.createElement('img');
+      photoEl.src = c.toDataURL('image/png');
+      photoEl.style.cssText = 'max-width:92vw;max-height:70vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.7);';
+      overlay.appendChild(photoEl);
+      const btns = document.createElement('div');
+      btns.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;';
+      btns.innerHTML = `
+        <button id="ph-share" style="padding:10px 22px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📤 Compartilhar</button>
+        <button id="ph-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Fechar</button>
+      `;
+      overlay.appendChild(btns);
+      document.body.appendChild(overlay);
+      overlay.querySelector('#ph-close')?.addEventListener('click', () => overlay.remove());
+      overlay.querySelector('#ph-share')?.addEventListener('click', async () => {
+        const blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), 'image/png'));
+        const file = new File([blob], 'foto-missao-espacial.png', { type: 'image/png' });
+        try {
+          if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: 'Foto da Missão Espacial', files: [file] });
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'foto-missao-espacial.png';
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        } catch { /* usuário cancelou */ }
+      });
+    };
+    img.src = frameUrl;
   }
 
   /** Barra flutuante do passeio automático (modo cinema, fora do VR). */

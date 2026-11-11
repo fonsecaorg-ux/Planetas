@@ -43,10 +43,15 @@ function buildFlagCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
+// Posições fixas das amostras: espalhadas o bastante para dar um passeio
+const SAMPLE_SPOTS: Array<[number, number]> = [[-8, 6], [14, 10], [-18, -14], [10, -24], [-5, -32]];
+const COLLECT_DIST = 1.4;
+
 export class MoonSurfaceScene {
   readonly group: THREE.Group;
   readonly juan: Astronaut;
   onFlagPlanted?: () => void;
+  onSampleCollected?: (collected: number, total: number) => void;
 
   private ground: THREE.Mesh;
   private craters: Crater[] = [];
@@ -64,6 +69,8 @@ export class MoonSurfaceScene {
   private footGeo: THREE.CircleGeometry;
   private footMat: THREE.MeshBasicMaterial;
   private earth: THREE.Mesh;
+  private samples: Array<{ group: THREE.Group; collected: boolean }> = [];
+  private collectedCount = 0;
 
   constructor(juanData: AstronautData, alreadyPlanted: boolean) {
     this.group = new THREE.Group();
@@ -177,6 +184,40 @@ export class MoonSurfaceScene {
     this.hintSprite.scale.set(5.6, 1.2, 1);
     this.hintSprite.position.copy(FLAG_POS).add(new THREE.Vector3(0, 2.6, 0));
     this.group.add(this.hintSprite);
+
+    // --- Amostras lunares colecionáveis (cristais brilhantes) ---
+    const sampleGlowCanvas = document.createElement('canvas');
+    sampleGlowCanvas.width = sampleGlowCanvas.height = 64;
+    const sgc = sampleGlowCanvas.getContext('2d')!;
+    const sgrad = sgc.createRadialGradient(32, 32, 4, 32, 32, 32);
+    sgrad.addColorStop(0, 'rgba(120,235,255,0.85)');
+    sgrad.addColorStop(1, 'rgba(120,235,255,0)');
+    sgc.fillStyle = sgrad;
+    sgc.fillRect(0, 0, 64, 64);
+    const sampleGlowTex = new THREE.CanvasTexture(sampleGlowCanvas);
+
+    for (const [sx, sz] of SAMPLE_SPOTS) {
+      const sg = new THREE.Group();
+      const crystal = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.26, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x67e8f9, roughness: 0.2, metalness: 0.3,
+          emissive: 0x2cc5e8, emissiveIntensity: 1.1,
+        }),
+      );
+      crystal.position.y = 0.35;
+      sg.add(crystal);
+      const sglow = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: sampleGlowTex, blending: THREE.AdditiveBlending,
+        transparent: true, depthWrite: false, opacity: 0.8,
+      }));
+      sglow.scale.setScalar(1.6);
+      sglow.position.y = 0.35;
+      sg.add(sglow);
+      sg.position.set(sx, this.heightAt(sx, sz), sz);
+      this.group.add(sg);
+      this.samples.push({ group: sg, collected: false });
+    }
 
     // --- Bandeira (invisível até plantar) ---
     this.flag = this._buildFlag();
@@ -316,6 +357,20 @@ export class MoonSurfaceScene {
         this.planted = true;
         this._hideSpot();
         this.onFlagPlanted?.();
+      }
+    }
+
+    // Amostras: giram, flutuam e são coletadas por proximidade
+    const jp = this.juan.group.position;
+    for (const s of this.samples) {
+      if (s.collected) continue;
+      s.group.rotation.y += dt * 1.2;
+      s.group.children[0].position.y = 0.35 + Math.sin(this.t * 2.5 + s.group.position.x) * 0.08;
+      if (Math.hypot(jp.x - s.group.position.x, jp.z - s.group.position.z) < COLLECT_DIST) {
+        s.collected = true;
+        this.group.remove(s.group);
+        this.collectedCount++;
+        this.onSampleCollected?.(this.collectedCount, this.samples.length);
       }
     }
 

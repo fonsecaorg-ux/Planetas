@@ -34,6 +34,7 @@ const BADGES = [
   { id: 'all-missions',         icon: '🏆', name: 'Mestre do Sistema Solar', desc: 'Completou missões em todos os corpos' },
   { id: 'moon-visited',         icon: '🌙', name: 'Lunar',                   desc: 'Visitou a Lua' },
   { id: 'moon-flag',            icon: '🚩', name: 'Comandante Lunar',        desc: 'Plantou a bandeira do Brasil na Lua' },
+  { id: 'moon-rocks',           icon: '🪨', name: 'Geólogo Lunar',           desc: 'Coletou as 5 amostras lunares' },
   { id: 'portal-unlocked',      icon: '🌌', name: 'Portal Interestelar',     desc: 'Desbloqueou o portal exoplanetário' },
   { id: 'all-planets',          icon: '🪐', name: 'Grande Viajante',         desc: 'Visitou todos os planetas' },
   { id: 'grande-missao',        icon: '⭐', name: 'Grande Missão',           desc: 'Completou a Grande Missão' },
@@ -415,6 +416,10 @@ const hud = new HUD(uiRoot, {
   onTour: () => {
     if (currentScene === 'base' || currentScene === 'lua') goBackToHub();
     startVRTour();
+  },
+  onPhoto: () => {
+    const frame = engine.captureFrame();
+    hud.showPhotoPreview(frame, store.get().certificateName || 'Explorador');
   },
   onPlaySound: (kind) => {
     if (kind === 'click') audio.click();
@@ -1108,6 +1113,19 @@ function switchToMoonSurface() {
     hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'A bandeira do Brasil está na Lua! Missão cumprida, comandante! 🚩');
     audio.speak('A bandeira do Brasil está na Lua! Missão cumprida, comandante!');
   };
+  const primeiraColeta = !store.hasBadge('moon-rocks');
+  moonScene.onSampleCollected = (n, total) => {
+    audio.success();
+    if (primeiraColeta) awardXP(5);
+    if (n >= total) {
+      checkAndAwardBadge('moon-rocks');
+      if (primeiraColeta) awardXP(25);
+      hud.showNarrativeBubble('JUAN_GUI7', '#67e8f9', 'Coleção completa! Você é um verdadeiro geólogo lunar! 🪨✨');
+      audio.speak('Coleção completa! Você é um verdadeiro geólogo lunar!');
+    } else {
+      hud.showBadgeToast('🪨', `Amostra lunar ${n}/${total}`, primeiraColeta ? '+5 XP — continue procurando os cristais!' : 'Continue procurando os cristais!');
+    }
+  };
   engine.scene.add(moonScene.group);
   currentScene = 'lua';
   rebuildSelectable();
@@ -1117,8 +1135,8 @@ function switchToMoonSurface() {
   hud.hidePlanet();
   hud.setBaseButtonMode(true);
   hud.setScaleIndicator('Superfície da Lua — toque no chão para o Juan caminhar');
-  hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'Pouso confirmado! Toque no chão e eu caminho até lá. Vamos ao círculo dourado plantar a nossa bandeira!');
-  audio.speak('Pouso confirmado! Toque no chão para caminhar até o círculo dourado e plantar a bandeira do Brasil!');
+  hud.showNarrativeBubble('JUAN_GUI7', '#7dd3fc', 'Pouso confirmado! Toque no chão e eu caminho até lá. Plante a bandeira no círculo dourado e colete os 5 cristais brilhantes! 🪨');
+  audio.speak('Pouso confirmado! Toque no chão para caminhar. Plante a bandeira no círculo dourado e colete os cinco cristais brilhantes!');
 }
 
 function switchToBase() {
