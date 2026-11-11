@@ -419,7 +419,9 @@ const hud = new HUD(uiRoot, {
   },
   onPhoto: () => {
     const frame = engine.captureFrame();
-    hud.showPhotoPreview(frame, store.get().certificateName || 'Explorador');
+    // Nome do personagem ativo (ex.: JUAN_GUI7); certificado só como reserva
+    const ativo = (astronautsData.astronauts as any[]).find((a) => a.id === store.get().activeAstronaut);
+    hud.showPhotoPreview(frame, ativo?.name || store.get().certificateName || 'Explorador');
   },
   onRecordToggle: () => toggleRecording(),
   onPlaySound: (kind) => {

@@ -254,10 +254,18 @@ export class HUD {
     btns.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;';
     btns.innerHTML = `
       <button id="vd-share" style="padding:10px 22px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📤 Compartilhar vídeo</button>
+      <button id="vd-save" style="padding:10px 22px;background:rgba(125,211,252,0.15);color:#7dd3fc;border:1px solid rgba(125,211,252,0.45);border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">💾 Salvar</button>
       <button id="vd-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Fechar</button>
     `;
     overlay.appendChild(btns);
     document.body.appendChild(overlay);
+    overlay.querySelector('#vd-save')?.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video-missao-espacial.${ext}`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+    });
     overlay.querySelector('#vd-close')?.addEventListener('click', () => {
       overlay.remove();
       URL.revokeObjectURL(url);
@@ -318,11 +326,19 @@ export class HUD {
       btns.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;';
       btns.innerHTML = `
         <button id="ph-share" style="padding:10px 22px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📤 Compartilhar</button>
+        <button id="ph-save" style="padding:10px 22px;background:rgba(125,211,252,0.15);color:#7dd3fc;border:1px solid rgba(125,211,252,0.45);border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">💾 Salvar</button>
         <button id="ph-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Fechar</button>
       `;
       overlay.appendChild(btns);
       document.body.appendChild(overlay);
       overlay.querySelector('#ph-close')?.addEventListener('click', () => overlay.remove());
+      overlay.querySelector('#ph-save')?.addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = photoEl.src;
+        a.download = 'foto-missao-espacial.png';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+      });
       overlay.querySelector('#ph-share')?.addEventListener('click', async () => {
         const blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), 'image/png'));
         const file = new File([blob], 'foto-missao-espacial.png', { type: 'image/png' });
