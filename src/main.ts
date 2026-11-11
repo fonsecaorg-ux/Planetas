@@ -421,6 +421,7 @@ const hud = new HUD(uiRoot, {
     const frame = engine.captureFrame();
     hud.showPhotoPreview(frame, store.get().certificateName || 'Explorador');
   },
+  onRecordToggle: () => toggleRecording(),
   onPlaySound: (kind) => {
     if (kind === 'click') audio.click();
     else if (kind === 'success') audio.success();
@@ -1228,6 +1229,53 @@ function buildGrandeMissaoQuestions(): MissionQuestion[] {
     [all[i], all[j]] = [all[j], all[i]];
   }
   return all.slice(0, 10);
+}
+
+// --- Gravação de tela: captura o canvas 3D + áudio do jogo ---
+// O vídeo sai limpo (sem menus HTML). Narração por voz (speechSynthesis)
+// não é capturável pelo navegador — só os sons sintetizados entram.
+const REC_MAX_S = 180;
+let recorder: MediaRecorder | null = null;
+let recChunks: Blob[] = [];
+let recTimeout: number | null = null;
+
+function toggleRecording() {
+  if (recorder) { stopRecording(); return; }
+  audio.click();
+  const stream = canvas.captureStream(30);
+  const audioStream = audio.captureStream();
+  if (audioStream) for (const t of audioStream.getAudioTracks()) stream.addTrack(t);
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+    .find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m));
+  try {
+    recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined);
+  } catch {
+    hud.showBadgeToast('⚠️', 'Gravação indisponível', 'Este navegador não suporta gravar a tela.');
+    recorder = null;
+    return;
+  }
+  recChunks = [];
+  recorder.ondataavailable = (e) => { if (e.data.size > 0) recChunks.push(e.data); };
+  recorder.start(1000);
+  hud.setRecordingState(true);
+  // Limite para não estourar a memória do celular
+  recTimeout = window.setTimeout(() => stopRecording(), REC_MAX_S * 1000);
+}
+
+function stopRecording() {
+  if (!recorder) return;
+  if (recTimeout !== null) { clearTimeout(recTimeout); recTimeout = null; }
+  const r = recorder;
+  const mime = r.mimeType || 'video/webm';
+  recorder = null;
+  hud.setRecordingState(false);
+  audio.click();
+  r.onstop = () => {
+    const blob = new Blob(recChunks, { type: mime });
+    recChunks = [];
+    if (blob.size > 0) hud.showVideoPreview(blob);
+  };
+  r.stop();
 }
 
 // --- Sessão VR: menu de modo na entrada, passeio automático opcional ---

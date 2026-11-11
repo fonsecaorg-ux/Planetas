@@ -68,13 +68,14 @@ html, body {
 .hud .interactive { pointer-events: auto; }
 
 /* Duplo toque: esconde o HUD */
-.top-bar, .time-slider, .vr-btn, .photo-btn, .side-panel, .cert {
+.top-bar, .time-slider, .vr-btn, .photo-btn, .rec-btn, .side-panel, .cert {
   transition: opacity 0.22s ease, visibility 0.22s ease;
 }
 .hud--hidden .top-bar,
 .hud--hidden .time-slider,
 .hud--hidden .vr-btn,
 .hud--hidden .photo-btn,
+.hud--hidden .rec-btn,
 .hud--hidden .side-panel,
 .hud--hidden .cert {
   opacity: 0 !important;
@@ -337,6 +338,23 @@ html, body {
   right: 92px;
 }
 
+.rec-btn {
+  position: absolute;
+  bottom: 16px;
+  right: 168px;
+}
+.rec-btn .btn.recording {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #ef4444;
+  color: #f87171;
+  font-weight: 700;
+  animation: recPulse 1.2s ease-in-out infinite;
+}
+@keyframes recPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+
 .scale-indicator {
   position: absolute;
   bottom: 70px;
@@ -379,6 +397,7 @@ html, body {
   .time-slider { bottom: max(8px, env(safe-area-inset-bottom, 8px)); }
   .vr-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(16px, env(safe-area-inset-right, 16px)); }
   .photo-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(92px, calc(env(safe-area-inset-right, 0px) + 92px)); }
+  .rec-btn { bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: max(168px, calc(env(safe-area-inset-right, 0px) + 168px)); }
 }
 
 /* Aviso de rotação — VR Box exige modo paisagem */

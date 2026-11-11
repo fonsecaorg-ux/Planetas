@@ -3,6 +3,7 @@
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
   private enabled = true;
   private voice: SpeechSynthesisVoice | null = null;
   private ambientNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
@@ -11,10 +12,21 @@ export class AudioEngine {
   constructor() {
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Nó mestre: permite capturar o áudio do jogo na gravação de tela
+      this.master = this.ctx.createGain();
+      this.master.connect(this.ctx.destination);
     } catch {
       this.ctx = null;
     }
     this.pickVoice();
+  }
+
+  /** Stream com o áudio do jogo, para incluir na gravação de vídeo. */
+  captureStream(): MediaStream | null {
+    if (!this.ctx || !this.master) return null;
+    const dest = this.ctx.createMediaStreamDestination();
+    this.master.connect(dest);
+    return dest.stream;
   }
 
   private pickVoice() {
@@ -45,7 +57,7 @@ export class AudioEngine {
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.value = freq > 100 ? 0.006 : 0.011;
-      osc.connect(gain).connect(this.ctx.destination);
+      osc.connect(gain).connect(this.master ?? this.ctx.destination);
       osc.start();
       this.ambientNodes.push({ osc, gain });
     }
@@ -114,7 +126,7 @@ export class AudioEngine {
     if (slide) o.frequency.exponentialRampToValueAtTime(slide, this.ctx.currentTime + dur);
     g.gain.setValueAtTime(gain, this.ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
-    o.connect(g).connect(this.ctx.destination);
+    o.connect(g).connect(this.master ?? this.ctx.destination);
     o.start();
     o.stop(this.ctx.currentTime + dur);
   }
@@ -139,7 +151,7 @@ export class AudioEngine {
     o.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 1.5);
     g.gain.setValueAtTime(0.15, this.ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 1.5);
-    o.connect(g).connect(this.ctx.destination);
+    o.connect(g).connect(this.master ?? this.ctx.destination);
     o.start();
     o.stop(this.ctx.currentTime + 1.5);
   }

@@ -25,6 +25,7 @@ export interface HUDCallbacks {
   onBase: () => void;
   onTour: () => void;
   onPhoto: () => void;
+  onRecordToggle: () => void;
   onDiary: () => void;
   onExpedition: () => void;
   onPlanetCreator: () => void;
@@ -118,6 +119,10 @@ export class HUD {
           <button class="btn" id="photo-btn" title="Tirar foto da missão">📸</button>
         </div>
 
+        <div class="rec-btn interactive">
+          <button class="btn" id="rec-btn" title="Gravar vídeo da tela">🔴</button>
+        </div>
+
         <div class="cert" id="cert"></div>
       </div>
       <div id="rotate-hint">
@@ -158,6 +163,8 @@ export class HUD {
       setTimeout(() => flash.remove(), 350);
       this.callbacks.onPhoto();
     });
+
+    this.root.querySelector('#rec-btn')?.addEventListener('click', () => this.callbacks.onRecordToggle());
 
     // Botão revelador: toque único mostra HUD novamente
     document.getElementById('hud-reveal')?.addEventListener('click', () => this.toggleHUD());
@@ -200,6 +207,73 @@ export class HUD {
 
     this.root.querySelector('#cert')?.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).id === 'cert-close') this.hideCertificate();
+    });
+  }
+
+  private recTimerId: number | null = null;
+  private recStartMs = 0;
+
+  /** Estado do botão de gravação: cronômetro vermelho pulsante enquanto grava. */
+  setRecordingState(rec: boolean) {
+    const btn = this.root.querySelector('#rec-btn') as HTMLElement | null;
+    if (!btn) return;
+    if (this.recTimerId !== null) { clearInterval(this.recTimerId); this.recTimerId = null; }
+    if (rec) {
+      this.recStartMs = Date.now();
+      btn.classList.add('recording');
+      const tick = () => {
+        const s = Math.floor((Date.now() - this.recStartMs) / 1000);
+        btn.textContent = `⏺ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      };
+      tick();
+      this.recTimerId = window.setInterval(tick, 500);
+    } else {
+      btn.classList.remove('recording');
+      btn.textContent = '🔴';
+    }
+  }
+
+  /** Prévia do vídeo gravado com player e compartilhamento. */
+  showVideoPreview(blob: Blob) {
+    document.getElementById('video-overlay')?.remove();
+    const url = URL.createObjectURL(blob);
+    const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const overlay = document.createElement('div');
+    overlay.id = 'video-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,20,0.94);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;gap:14px;';
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.cssText = 'max-width:92vw;max-height:66vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.7);border:2px solid rgba(239,68,68,0.4);';
+    overlay.appendChild(video);
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;';
+    btns.innerHTML = `
+      <button id="vd-share" style="padding:10px 22px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:700;">📤 Compartilhar vídeo</button>
+      <button id="vd-close" style="padding:10px 22px;background:rgba(255,255,255,0.1);color:#e8eef7;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:0.9rem;cursor:pointer;">Fechar</button>
+    `;
+    overlay.appendChild(btns);
+    document.body.appendChild(overlay);
+    overlay.querySelector('#vd-close')?.addEventListener('click', () => {
+      overlay.remove();
+      URL.revokeObjectURL(url);
+    });
+    overlay.querySelector('#vd-share')?.addEventListener('click', async () => {
+      const file = new File([blob], `video-missao-espacial.${ext}`, { type: blob.type || 'video/webm' });
+      try {
+        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: 'Vídeo da Missão Espacial', files: [file] });
+        } else {
+          const a = document.createElement('a');
+          a.href = url; a.download = `video-missao-espacial.${ext}`;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a);
+        }
+      } catch { /* usuário cancelou */ }
     });
   }
 
